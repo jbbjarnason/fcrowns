@@ -18,6 +18,7 @@ class AuthRoutes {
   Router get router {
     final router = Router();
 
+    router.get('/health', _health);
     router.post('/signup', _signup);
     router.post('/verify', _verify);
     router.post('/login', _login);
@@ -26,6 +27,13 @@ class AuthRoutes {
     router.post('/password-reset/confirm', _passwordResetConfirm);
 
     return router;
+  }
+
+  Response _health(Request request) {
+    return Response.ok(
+      jsonEncode({'status': 'ok'}),
+      headers: {'content-type': 'application/json'},
+    );
   }
 
   Future<Response> _signup(Request request) async {
