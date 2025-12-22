@@ -1,0 +1,14 @@
+name: fivecrowns_protocol
+description: DTOs and JSON codecs for Five Crowns REST/WebSocket protocol
+version: 1.0.0
+publish_to: none
+
+environment:
+  sdk: ^3.0.0
+
+dependencies:
+  fivecrowns_core:
+    path: ../fivecrowns_core
+
+dev_dependencies:
+  test: ^1.24.0

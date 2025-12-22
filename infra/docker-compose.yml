@@ -1,0 +1,80 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: fivecrowns
+      POSTGRES_PASSWORD: fivecrowns
+      POSTGRES_DB: fivecrowns
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "8025:8025"
+    restart: unless-stopped
+
+  server:
+    image: dart:stable
+    working_dir: /app
+    volumes:
+      - ../server:/app
+      - ../packages:/packages
+    command: ["sh", "-c", "dart pub get && dart run bin/server.dart"]
+    environment:
+      DATABASE_URL: postgres://fivecrowns:fivecrowns@postgres:5432/fivecrowns
+      JWT_SECRET: "change-me"
+      JWT_ACCESS_TTL_DAYS: "7"
+      SMTP_HOST: "mailpit"
+      SMTP_PORT: "1025"
+      SMTP_FROM: "no-reply@example.com"
+      LIVEKIT_URL: "wss://livekit.example.com"
+      LIVEKIT_API_KEY: "devkey"
+      LIVEKIT_API_SECRET: "devsecret"
+    depends_on:
+      - postgres
+      - mailpit
+    restart: unless-stopped
+
+  livekit:
+    image: livekit/livekit-server:latest
+    command: --config /etc/livekit.yaml
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "7882:7882/udp"
+    restart: unless-stopped
+
+  coturn:
+    image: coturn/coturn:latest
+    command: ["-c", "/etc/turnserver.conf"]
+    volumes:
+      - ./turnserver.conf:/etc/turnserver.conf:ro
+    ports:
+      - "3478:3478"
+      - "3478:3478/udp"
+      - "5349:5349"
+      - "5349:5349/udp"
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:latest
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - server
+      - livekit
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

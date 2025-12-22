@@ -1,0 +1,15 @@
+agents:
+  - id: orchestrator
+    file: agents/00_orchestrator.md
+  - id: planner
+    file: agents/01_planner.md
+  - id: backend
+    file: agents/02_backend.md
+  - id: frontend
+    file: agents/03_frontend_flutter.md
+  - id: infra
+    file: agents/04_infra_devops.md
+  - id: reviewer
+    file: agents/05_reviewer.md
+  - id: tester
+    file: agents/06_tester.md

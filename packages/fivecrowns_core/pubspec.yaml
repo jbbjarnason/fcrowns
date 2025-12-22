@@ -1,0 +1,10 @@
+name: fivecrowns_core
+description: Pure Dart game engine for Five Crowns card game
+version: 1.0.0
+publish_to: none
+
+environment:
+  sdk: ^3.0.0
+
+dev_dependencies:
+  test: ^1.24.0

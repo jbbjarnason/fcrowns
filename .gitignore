@@ -1,0 +1,58 @@
+# Dependencies
+node_modules/
+.dart_tool/
+.packages
+pubspec.lock
+
+# Build outputs
+build/
+*.js.map
+*.js.deps
+*.dill
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+
+# Flutter/Dart
+.flutter-plugins
+.flutter-plugins-dependencies
+*.log
+
+# iOS
+app/ios/Pods/
+app/ios/.symlinks/
+app/ios/Flutter/Flutter.framework
+app/ios/Flutter/Flutter.podspec
+app/ios/Runner.xcworkspace/xcuserdata/
+app/ios/Runner.xcodeproj/xcuserdata/
+app/ios/Runner.xcodeproj/project.xcworkspace/xcuserdata/
+
+# Android
+app/android/.gradle/
+app/android/local.properties
+*.apk
+*.aab
+
+# Web
+app/web/favicon.png
+
+# macOS
+.DS_Store
+*.xcuserstate
+
+# Credentials and secrets
+.env
+*.pem
+*_creds.json
+credentials.json
+
+# Test artifacts
+/tmp/
+*.output
+
+# Archives
+*.zip

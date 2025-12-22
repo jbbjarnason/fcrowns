@@ -1,0 +1,47 @@
+name: fivecrowns_app
+description: Five Crowns card game app
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.8.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # Routing
+  beamer: ^1.7.0
+
+  # State management
+  flutter_riverpod: ^2.6.1
+
+  # Networking
+  http: ^1.2.2
+  web_socket_channel: ^3.0.2
+
+  # Storage
+  flutter_secure_storage: ^9.2.4
+  shared_preferences: ^2.3.5
+
+  # LiveKit
+  livekit_client: ^2.4.4
+  permission_handler: ^11.3.1
+
+  # Local packages
+  fivecrowns_core:
+    path: ../packages/fivecrowns_core
+  fivecrowns_protocol:
+    path: ../packages/fivecrowns_protocol
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true

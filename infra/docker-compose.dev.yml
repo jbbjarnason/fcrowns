@@ -1,0 +1,65 @@
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: fivecrowns
+      POSTGRES_PASSWORD: fivecrowns
+      POSTGRES_DB: fivecrowns
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata_dev:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fivecrowns"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+  livekit:
+    image: livekit/livekit-server:latest
+    command: --dev --bind 0.0.0.0
+    environment:
+      LIVEKIT_KEYS: "devkey: devsecret"
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "7882:7882/udp"
+
+  server:
+    image: dart:stable
+    working_dir: /app
+    volumes:
+      - ../server:/app
+      - ../packages:/packages
+    command: ["sh", "-c", "dart pub get && dart run bin/server.dart"]
+    environment:
+      DATABASE_URL: postgres://fivecrowns:fivecrowns@postgres:5432/fivecrowns
+      JWT_SECRET: "test-secret-for-development"
+      JWT_ACCESS_TTL_DAYS: "7"
+      SMTP_HOST: "mailpit"
+      SMTP_PORT: "1025"
+      SMTP_FROM: "no-reply@fivecrowns.local"
+      BASE_URL: "http://localhost:8080"
+      PORT: "8080"
+      LIVEKIT_URL: "ws://livekit:7880"
+      LIVEKIT_API_KEY: "devkey"
+      LIVEKIT_API_SECRET: "devsecret"
+      DISABLE_RATE_LIMIT: "true"
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+      livekit:
+        condition: service_started
+
+volumes:
+  pgdata_dev:
