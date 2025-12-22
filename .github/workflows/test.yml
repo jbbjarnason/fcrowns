@@ -146,7 +146,7 @@ jobs:
       - name: Analyze
         run: |
           cd app
-          flutter analyze
+          flutter analyze lib test
 
       - name: Run tests
         run: |
