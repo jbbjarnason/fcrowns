@@ -29,14 +29,15 @@ class _FiveCrownsAppState extends ConsumerState<FiveCrownsApp> {
   void initState() {
     super.initState();
 
+    final locationBuilder = BeamerLocationBuilder(
+      beamLocations: [
+        AuthLocation(),
+        GamesLocation(),
+      ],
+    );
     _routerDelegate = BeamerDelegate(
       initialPath: '/login',
-      locationBuilder: BeamerLocationBuilder(
-        beamLocations: [
-          AuthLocation(),
-          GamesLocation(),
-        ],
-      ),
+      locationBuilder: locationBuilder.call,
       guards: [
         BeamGuard(
           pathPatterns: ['/games', '/games/*', '/friends', '/stats'],

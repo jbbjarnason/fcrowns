@@ -5,32 +5,27 @@ void main() {
   late TestHarness harness;
   late String user1Token;
   late String user2Token;
-  late String user3Token;
   late String user1Id;
   late String user2Id;
-  late String user3Id;
 
   setUp(() async {
     harness = TestHarness();
     await harness.setUp();
 
-    // Create three test users
+    // Create three test users (user3 exists for search test but token not needed)
     final (token1, _) = await createVerifiedUser(harness, email: 'user1@test.com', username: 'user1');
     final (token2, _) = await createVerifiedUser(harness, email: 'user2@test.com', username: 'user2');
-    final (token3, _) = await createVerifiedUser(harness, email: 'user3@test.com', username: 'user3');
+    await createVerifiedUser(harness, email: 'user3@test.com', username: 'user3');
 
     user1Token = token1;
     user2Token = token2;
-    user3Token = token3;
 
-    // Get user IDs
+    // Get user IDs (user3 doesn't need ID - only used for search tests)
     final me1 = await harness.request('GET', '/users/me', authToken: user1Token);
     final me2 = await harness.request('GET', '/users/me', authToken: user2Token);
-    final me3 = await harness.request('GET', '/users/me', authToken: user3Token);
 
     user1Id = (await harness.parseJson(me1))['id'] as String;
     user2Id = (await harness.parseJson(me2))['id'] as String;
-    user3Id = (await harness.parseJson(me3))['id'] as String;
   });
 
   tearDown(() async {

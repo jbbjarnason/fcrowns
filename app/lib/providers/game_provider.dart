@@ -59,7 +59,7 @@ class GameProvider extends ChangeNotifier {
   String? get error => _error;
 
   // Game log - stores recent actions
-  List<String> _gameLog = [];
+  final List<String> _gameLog = [];
   List<String> get gameLog => _gameLog;
 
   String? _lastAction;

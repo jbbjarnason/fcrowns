@@ -1,25 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fivecrowns_app/screens/games_screen.dart';
-import 'package:fivecrowns_app/providers/games_provider.dart';
-import 'package:fivecrowns_app/providers/auth_provider.dart';
-import 'package:fivecrowns_app/services/api_service.dart';
 import 'package:fivecrowns_app/theme/app_theme.dart';
-
-// Mock API service
-class MockApiService extends ApiService {
-  MockApiService() : super(baseUrl: 'http://localhost:8080');
-
-  @override
-  Future<List<Map<String, dynamic>>> getGames() async {
-    return []; // Return empty list
-  }
-}
 
 void main() {
   testWidgets('GamesScreen renders with dark theme', (WidgetTester tester) async {
-    final mockApi = MockApiService();
 
     await tester.pumpWidget(
       ProviderScope(
@@ -55,11 +40,11 @@ void main() {
 
     // Check scaffold background color
     final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
-    print('Scaffold backgroundColor: ${scaffold.backgroundColor}');
+    debugPrint('Scaffold backgroundColor: ${scaffold.backgroundColor}');
 
     // Get the Material widget's color
     final material = tester.widget<Material>(find.byType(Material).first);
-    print('Material color: ${material.color}');
+    debugPrint('Material color: ${material.color}');
 
     // Check if "No games yet" text is visible
     expect(find.text('No games yet'), findsOneWidget);
@@ -75,10 +60,10 @@ void main() {
         home: Builder(
           builder: (context) {
             final theme = Theme.of(context);
-            print('scaffoldBackgroundColor: ${theme.scaffoldBackgroundColor}');
-            print('colorScheme.surface: ${theme.colorScheme.surface}');
-            print('colorScheme.background: N/A (deprecated)');
-            print('canvasColor: ${theme.canvasColor}');
+            debugPrint('scaffoldBackgroundColor: ${theme.scaffoldBackgroundColor}');
+            debugPrint('colorScheme.surface: ${theme.colorScheme.surface}');
+            debugPrint('colorScheme.background: N/A (deprecated)');
+            debugPrint('canvasColor: ${theme.canvasColor}');
 
             return Scaffold(
               body: Container(
@@ -140,6 +125,6 @@ void main() {
 
     // Get scaffold and check background
     final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
-    print('Scaffold in empty games: backgroundColor=${scaffold.backgroundColor}');
+    debugPrint('Scaffold in empty games: backgroundColor=${scaffold.backgroundColor}');
   });
 }

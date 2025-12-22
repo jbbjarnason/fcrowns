@@ -87,8 +87,6 @@ class Card {
   final Rank? rank;
   final bool isJoker;
 
-  const Card._(this.suit, this.rank, this.isJoker);
-
   /// Creates a regular card with a suit and rank.
   const Card(Suit this.suit, Rank this.rank)
       : isJoker = false;
