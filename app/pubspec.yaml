@@ -43,6 +43,7 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^5.0.0
   flutter_launcher_icons: ^0.14.2
+  flutter_native_splash: ^2.4.4
   mocktail: ^1.0.4
 
 # App icon configuration
@@ -53,6 +54,8 @@ flutter_launcher_icons:
   adaptive_icon_background: "#1a1a2e"
   adaptive_icon_foreground: "logo/five_crowns_icon_1024.png"
   min_sdk_android: 21
+  remove_alpha_ios: true
+  background_color_ios: "#1a1a2e"
   web:
     generate: true
     image_path: "logo/five_crowns_icon_1024.png"
@@ -64,6 +67,17 @@ flutter_launcher_icons:
   macos:
     generate: true
     image_path: "logo/five_crowns_icon_1024.png"
+
+# Splash screen configuration
+flutter_native_splash:
+  color: "#1a1a2e"
+  image: "logo/five_crowns_icon_512.png"
+  android: true
+  ios: true
+  web: true
+  android_12:
+    color: "#1a1a2e"
+    image: "logo/five_crowns_icon_512.png"
 
 flutter:
   uses-material-design: true
