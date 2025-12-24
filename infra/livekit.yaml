@@ -2,8 +2,16 @@ port: 7880
 rtc:
   udp_port: 7882
   tcp_port: 7881
-  # For local testing, set your laptop's IP
-  # use_external_ip: true
-  node_ip: 10.11.11.129
+  use_external_ip: true
+
+# API keys - must match LIVEKIT_API_KEY/SECRET in .env
 keys:
   devkey: devsecret
+
+# TURN server configuration for reliable connectivity
+turn:
+  enabled: true
+  udp_port: 3478
+  tls_port: 5349
+  # Must match static-auth-secret in turnserver.conf
+  credential: CHANGE_THIS_TURN_SECRET

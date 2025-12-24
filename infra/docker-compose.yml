@@ -7,8 +7,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-fivecrowns}
     volumes:
       - pgdata:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"  # For local dev when running server outside docker
+    # ports:
+    #   - "5432:5432"  # Only enable for local dev
     restart: unless-stopped
 
   mailpit:
