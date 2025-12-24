@@ -13,13 +13,57 @@ class GameLobbyScreen extends ConsumerStatefulWidget {
 }
 
 class _GameLobbyScreenState extends ConsumerState<GameLobbyScreen> {
+  bool _subscribedToGame = false;
+  GameProvider? _gameProvider;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(gamesProvider).loadGame(widget.gameId);
       ref.read(friendsProvider).loadFriends();
+      _setupCallbacks();
+      _subscribeToGameUpdates();
     });
+  }
+
+  void _setupCallbacks() {
+    final notifications = ref.read(notificationsProvider);
+    notifications.onGameDeleted = (gameId, deletedBy) {
+      if (gameId == widget.gameId && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Game was deleted by $deletedBy')),
+        );
+        context.beamToNamed('/games');
+      }
+    };
+  }
+
+  Future<void> _subscribeToGameUpdates() async {
+    if (_subscribedToGame) return;
+    _subscribedToGame = true;
+
+    final auth = ref.read(authProvider);
+    _gameProvider = ref.read(gameProvider);
+
+    _gameProvider!.setUserId(auth.userId!);
+    await _gameProvider!.joinGame(widget.gameId);
+
+    // Listen for game status changes
+    _gameProvider!.addListener(_onGameStateChanged);
+  }
+
+  void _onGameStateChanged() {
+    if (_gameProvider?.gameStatus == 'active' && mounted) {
+      // Game has started - navigate to play screen
+      context.beamToNamed('/games/${widget.gameId}/play');
+    }
+  }
+
+  @override
+  void dispose() {
+    _gameProvider?.removeListener(_onGameStateChanged);
+    super.dispose();
   }
 
   Future<void> _inviteFriend(String friendId) async {
@@ -32,15 +76,52 @@ class _GameLobbyScreenState extends ConsumerState<GameLobbyScreen> {
   }
 
   Future<void> _startGame() async {
-    final auth = ref.read(authProvider);
     final game = ref.read(gameProvider);
-
-    game.setUserId(auth.userId!);
-    await game.joinGame(widget.gameId);
+    // Already subscribed to game via _subscribeToGameUpdates
+    // Navigation will happen automatically via _onGameStateChanged
     game.startGame();
+  }
 
+  Future<void> _deleteGame() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Game'),
+        content: const Text('Are you sure you want to delete this game? All players will be removed.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final success = await ref.read(gamesProvider).deleteGame(widget.gameId);
+      if (mounted) {
+        if (success) {
+          context.beamToNamed('/games');
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to delete game')),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _nudgeHost() async {
+    final success = await ref.read(gamesProvider).nudgeHost(widget.gameId);
     if (mounted) {
-      context.beamToNamed('/games/${widget.gameId}/play');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(success ? 'Nudge sent!' : 'Failed to nudge')),
+      );
     }
   }
 
@@ -48,6 +129,11 @@ class _GameLobbyScreenState extends ConsumerState<GameLobbyScreen> {
   Widget build(BuildContext context) {
     final games = ref.watch(gamesProvider);
     final friends = ref.watch(friendsProvider);
+    final auth = ref.watch(authProvider);
+
+    final game = games.currentGame;
+    final isHost = game != null && game['createdBy'] == auth.userId;
+    final status = game?['status'] as String? ?? 'lobby';
 
     return Scaffold(
       appBar: AppBar(
@@ -56,6 +142,15 @@ class _GameLobbyScreenState extends ConsumerState<GameLobbyScreen> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.beamToNamed('/games'),
         ),
+        actions: [
+          // Only show delete button for host and if game is in lobby
+          if (isHost && status == 'lobby')
+            IconButton(
+              icon: const Icon(Icons.delete),
+              tooltip: 'Delete Game',
+              onPressed: _deleteGame,
+            ),
+        ],
       ),
       body: Builder(
         builder: (context) {
@@ -63,14 +158,12 @@ class _GameLobbyScreenState extends ConsumerState<GameLobbyScreen> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final game = games.currentGame;
           if (game == null) {
             return const Center(child: Text('Game not found'));
           }
 
           final players = (game['players'] as List?) ?? [];
           final maxPlayers = game['maxPlayers'] as int? ?? 4;
-          final status = game['status'] as String? ?? 'lobby';
 
           if (status == 'active' || status == 'finished') {
             return Center(
@@ -153,13 +246,22 @@ class _GameLobbyScreenState extends ConsumerState<GameLobbyScreen> {
               ],
               const SizedBox(height: 24),
               if (players.length >= 2)
-                ElevatedButton(
-                  onPressed: _startGame,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: const Text('Start Game'),
-                )
+                isHost
+                    ? ElevatedButton(
+                        onPressed: _startGame,
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                        child: const Text('Start Game'),
+                      )
+                    : ElevatedButton(
+                        onPressed: _nudgeHost,
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          backgroundColor: Colors.orange,
+                        ),
+                        child: const Text('Nudge Host to Start'),
+                      )
               else
                 const Center(
                   child: Text('Need at least 2 players to start',

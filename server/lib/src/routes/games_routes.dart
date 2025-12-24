@@ -7,17 +7,20 @@ import 'package:dart_jsonwebtoken/dart_jsonwebtoken.dart';
 import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
+import '../ws/ws_hub.dart';
 
 const _uuid = Uuid();
 
 class GamesRoutes {
   final AppDatabase db;
+  final WsHub wsHub;
   final String livekitUrl;
   final String livekitApiKey;
   final String livekitApiSecret;
 
   GamesRoutes({
     required this.db,
+    required this.wsHub,
     required this.livekitUrl,
     required this.livekitApiKey,
     required this.livekitApiSecret,
@@ -29,7 +32,10 @@ class GamesRoutes {
     router.get('/', _listGames);
     router.post('/', _createGame);
     router.get('/<gameId>', _getGame);
+    router.delete('/<gameId>', _deleteGame);
     router.post('/<gameId>/invite', _invitePlayer);
+    router.post('/<gameId>/nudge', _nudgeHost);
+    router.post('/<gameId>/nudge-player', _nudgePlayer);
     router.post('/<gameId>/livekit-token', _getLivekitToken);
 
     return router;
@@ -156,6 +162,60 @@ class GamesRoutes {
         headers: {'content-type': 'application/json'});
   }
 
+  Future<Response> _deleteGame(Request request, String gameId) async {
+    final userId = request.context['userId'] as String?;
+    if (userId == null) return _unauthorized();
+
+    final game = await (db.select(db.games)
+      ..where((g) => g.id.equals(gameId)))
+        .getSingleOrNull();
+
+    if (game == null) {
+      return _error(404, 'not_found', 'Game not found');
+    }
+
+    // Only the host (creator) can delete the game
+    if (game.createdBy != userId) {
+      return _error(403, 'not_host', 'Only the game host can delete the game');
+    }
+
+    // Can only delete games in lobby status (not started)
+    if (game.status != 'lobby') {
+      return _error(400, 'game_started', 'Cannot delete a game that has already started');
+    }
+
+    // Get all players before deleting (to notify them)
+    final players = await (db.select(db.gamePlayers)
+      ..where((gp) => gp.gameId.equals(gameId)))
+        .get();
+    final playerIds = players.map((p) => p.userId).where((id) => id != userId).toList();
+
+    // Get host info for notification
+    final host = await (db.select(db.users)..where((u) => u.id.equals(userId))).getSingleOrNull();
+
+    // Delete game (cascades to game_players, game_events, etc.)
+    await (db.delete(db.games)..where((g) => g.id.equals(gameId))).go();
+
+    // Also delete any pending notifications for this game
+    await (db.delete(db.notifications)..where((n) => n.gameId.equals(gameId))).go();
+
+    // Notify all players that game was deleted
+    if (host != null && playerIds.isNotEmpty) {
+      wsHub.sendGameDeletedToPlayers(
+        playerIds,
+        EvtGameDeleted(
+          gameId: gameId,
+          deletedByUserId: userId,
+          deletedByUsername: host.displayName ?? host.username,
+        ),
+      );
+    }
+
+    return Response(200,
+        body: jsonEncode({'status': 'deleted'}),
+        headers: {'content-type': 'application/json'});
+  }
+
   Future<Response> _invitePlayer(Request request, String gameId) async {
     final userId = request.context['userId'] as String?;
     if (userId == null) return _unauthorized();
@@ -186,6 +246,27 @@ class GamesRoutes {
         return _error(403, 'not_in_game', 'You are not in this game');
       }
 
+      // Verify target user exists
+      final targetUser = await (db.select(db.users)
+        ..where((u) => u.id.equals(req.userId)))
+          .getSingleOrNull();
+
+      if (targetUser == null) {
+        return _error(404, 'user_not_found', 'User not found');
+      }
+
+      // Verify friendship exists (must be accepted in either direction)
+      final friendship = await (db.select(db.friendships)
+        ..where((f) =>
+            ((f.userId.equals(userId) & f.friendId.equals(req.userId)) |
+             (f.userId.equals(req.userId) & f.friendId.equals(userId))) &
+            f.status.equals('accepted')))
+          .getSingleOrNull();
+
+      if (friendship == null) {
+        return _error(403, 'not_friends', 'You can only invite friends to games');
+      }
+
       // Check if already in game
       final existing = await (db.select(db.gamePlayers)
         ..where((gp) => gp.gameId.equals(gameId) & gp.userId.equals(req.userId)))
@@ -212,12 +293,149 @@ class GamesRoutes {
         seat: nextSeat,
       ));
 
+      // Create notification for invited player
+      await db.into(db.notifications).insert(NotificationsCompanion.insert(
+        userId: req.userId,
+        type: 'game_invitation',
+        fromUserId: Value(userId),
+        gameId: Value(gameId),
+      ));
+
+      // Get inviter info for real-time notification
+      final inviterUser = await (db.select(db.users)..where((u) => u.id.equals(userId))).getSingleOrNull();
+      if (inviterUser != null) {
+        wsHub.sendNotificationToUser(
+          req.userId,
+          EvtNotification(
+            gameId: gameId,
+            notificationType: NotificationType.gameInvitation,
+            fromUserId: userId,
+            fromUsername: inviterUser.username,
+            fromDisplayName: inviterUser.displayName,
+            message: '${inviterUser.displayName ?? inviterUser.username} invited you to a game',
+          ),
+        );
+      }
+
       return Response(200,
           body: jsonEncode({'status': 'invited'}),
           headers: {'content-type': 'application/json'});
     } on FormatException {
       return _error(400, 'invalid_json', 'Invalid JSON');
     }
+  }
+
+  Future<Response> _nudgeHost(Request request, String gameId) async {
+    final userId = request.context['userId'] as String?;
+    if (userId == null) return _unauthorized();
+
+    // Get game
+    final game = await (db.select(db.games)
+      ..where((g) => g.id.equals(gameId)))
+        .getSingleOrNull();
+
+    if (game == null) {
+      return _error(404, 'not_found', 'Game not found');
+    }
+
+    // Can only nudge in lobby
+    if (game.status != 'lobby') {
+      return _error(400, 'game_started', 'Game has already started');
+    }
+
+    // Cannot nudge yourself
+    if (game.createdBy == userId) {
+      return _error(400, 'is_host', 'You are the host');
+    }
+
+    // Verify user is in game
+    final player = await (db.select(db.gamePlayers)
+      ..where((gp) => gp.gameId.equals(gameId) & gp.userId.equals(userId)))
+        .getSingleOrNull();
+
+    if (player == null) {
+      return _error(403, 'not_in_game', 'You are not in this game');
+    }
+
+    // Get nudger info
+    final nudger = await (db.select(db.users)..where((u) => u.id.equals(userId))).getSingleOrNull();
+    if (nudger != null) {
+      wsHub.sendNotificationToUser(
+        game.createdBy,
+        EvtNotification(
+          gameId: gameId,
+          notificationType: NotificationType.gameNudge,
+          fromUserId: userId,
+          fromUsername: nudger.username,
+          fromDisplayName: nudger.displayName,
+          message: '${nudger.displayName ?? nudger.username} wants you to start the game!',
+        ),
+      );
+    }
+
+    return Response(200,
+        body: jsonEncode({'status': 'nudged'}),
+        headers: {'content-type': 'application/json'});
+  }
+
+  /// Nudge the active player in an active game (when they're taking too long)
+  Future<Response> _nudgePlayer(Request request, String gameId) async {
+    final userId = request.context['userId'] as String?;
+    if (userId == null) return _unauthorized();
+
+    // Get game
+    final game = await (db.select(db.games)
+      ..where((g) => g.id.equals(gameId)))
+        .getSingleOrNull();
+
+    if (game == null) {
+      return _error(404, 'not_found', 'Game not found');
+    }
+
+    // Can only nudge in active games
+    if (game.status != 'active') {
+      return _error(400, 'game_not_active', 'Game is not in progress');
+    }
+
+    // Verify user is in game
+    final player = await (db.select(db.gamePlayers)
+      ..where((gp) => gp.gameId.equals(gameId) & gp.userId.equals(userId)))
+        .getSingleOrNull();
+
+    if (player == null) {
+      return _error(403, 'not_in_game', 'You are not in this game');
+    }
+
+    // Get current player from game state
+    final currentPlayerId = await wsHub.getCurrentPlayerId(gameId);
+    if (currentPlayerId == null) {
+      return _error(400, 'no_active_player', 'No active player found');
+    }
+
+    // Cannot nudge yourself
+    if (currentPlayerId == userId) {
+      return _error(400, 'cannot_nudge_self', 'It is your turn');
+    }
+
+    // Get nudger info
+    final nudger = await (db.select(db.users)..where((u) => u.id.equals(userId))).getSingleOrNull();
+    if (nudger != null) {
+      wsHub.sendNotificationToUser(
+        currentPlayerId,
+        EvtNotification(
+          gameId: gameId,
+          notificationType: NotificationType.gameNudge,
+          fromUserId: userId,
+          fromUsername: nudger.username,
+          fromDisplayName: nudger.displayName,
+          message: '${nudger.displayName ?? nudger.username} is waiting for you to play!',
+        ),
+      );
+    }
+
+    return Response(200,
+        body: jsonEncode({'status': 'nudged'}),
+        headers: {'content-type': 'application/json'});
   }
 
   Future<Response> _getLivekitToken(Request request, String gameId) async {
@@ -255,7 +473,7 @@ class GamesRoutes {
     required String participantIdentity,
   }) {
     final now = DateTime.now().toUtc();
-    final expiry = now.add(const Duration(hours: 24));
+    final expiry = now.add(const Duration(hours: 2));
 
     final jwt = JWT(
       {

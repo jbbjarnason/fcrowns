@@ -37,13 +37,15 @@ class TestHarness {
       emailService: emailService,
     );
     final userRoutes = UserRoutes(db: db);
-    final friendsRoutes = FriendsRoutes(db: db);
+    final friendsRoutes = FriendsRoutes(db: db, wsHub: wsHub);
     final gamesRoutes = GamesRoutes(
       db: db,
+      wsHub: wsHub,
       livekitUrl: 'wss://test.livekit.local',
       livekitApiKey: 'test-key',
       livekitApiSecret: 'test-secret',
     );
+    final notificationsRoutes = NotificationsRoutes(db: db);
 
     final app = Router();
     app.mount('/auth', authRoutes.router.call);
@@ -52,6 +54,7 @@ class TestHarness {
     protectedRouter.mount('/users', userRoutes.router.call);
     protectedRouter.mount('/friends', friendsRoutes.router.call);
     protectedRouter.mount('/games', gamesRoutes.router.call);
+    protectedRouter.mount('/notifications', notificationsRoutes.router.call);
 
     app.mount('/', Pipeline()
         .addMiddleware(authMiddleware(authService))

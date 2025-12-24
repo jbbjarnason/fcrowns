@@ -3,10 +3,13 @@ import 'dart:convert';
 import 'package:fivecrowns_core/fivecrowns_core.dart' as core;
 import 'package:fivecrowns_protocol/fivecrowns_protocol.dart';
 import 'package:drift/drift.dart';
+import 'package:logging/logging.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../db/database.dart';
 import '../services/auth_service.dart';
+
+final _log = Logger('WsHub');
 
 /// Manages WebSocket connections and game rooms.
 class WsHub {
@@ -70,6 +73,7 @@ class WsHub {
 
   void _handleDisconnect(WsConnection conn) {
     if (conn.userId != null) {
+      _log.info('User disconnected: ${conn.userId}');
       _connections.remove(conn.userId);
       // Don't remove from rooms - allow reconnect
     }
@@ -91,6 +95,8 @@ class WsHub {
     conn.userId = userId;
     _connections[userId] = conn;
 
+    _log.info('User connected: $userId (${user.username})');
+
     conn.send(EvtHello(userId: userId, username: user.username).toJson());
   }
 
@@ -108,7 +114,7 @@ class WsHub {
     _rooms[cmd.gameId]!.add(conn.userId!);
 
     // Send state
-    _sendState(conn, cmd.gameId, gameState);
+    await _sendState(conn, cmd.gameId, gameState);
   }
 
   Future<void> _handleJoinGame(WsConnection conn, CmdJoinGame cmd) async {
@@ -131,7 +137,7 @@ class WsHub {
     // Load and send state
     final gameState = await _loadOrGetGameState(cmd.gameId);
     if (gameState != null) {
-      _sendState(conn, cmd.gameId, gameState);
+      await _sendState(conn, cmd.gameId, gameState);
     }
   }
 
@@ -407,14 +413,27 @@ class WsHub {
     for (final userId in room) {
       final conn = _connections[userId];
       if (conn != null) {
-        _sendState(conn, gameId, gameState);
+        await _sendState(conn, gameId, gameState);
       }
     }
   }
 
-  void _sendState(WsConnection conn, String gameId, core.GameState gameState) {
+  Future<void> _sendState(WsConnection conn, String gameId, core.GameState gameState) async {
     final seq = _serverSeqs[gameId] ?? 1;
     final stateJson = gameState.toPlayerView(conn.userId!);
+
+    // Enrich player data with username/displayName from database
+    final players = stateJson['players'] as List<dynamic>;
+    for (final player in players) {
+      final playerMap = player as Map<String, dynamic>;
+      final userId = playerMap['id'] as String;
+      final user = await (db.select(db.users)..where((u) => u.id.equals(userId))).getSingleOrNull();
+      if (user != null) {
+        playerMap['username'] = user.username;
+        playerMap['displayName'] = user.displayName;
+      }
+    }
+
     final state = GameStateDto.fromJson(stateJson);
 
     conn.send(EvtState(
@@ -438,6 +457,38 @@ class WsHub {
       return false;
     }
     return true;
+  }
+
+  // ========== Public notification methods ==========
+
+  /// Send a notification to a specific user (if connected)
+  void sendNotificationToUser(String userId, EvtNotification notification) {
+    final conn = _connections[userId];
+    if (conn != null) {
+      conn.send(notification.toJson());
+      _log.fine('Notification sent to $userId: ${notification.notificationType}');
+    }
+  }
+
+  /// Get the current player ID for an active game (null if game not found or not active)
+  Future<String?> getCurrentPlayerId(String gameId) async {
+    final gameState = await _loadOrGetGameState(gameId);
+    if (gameState == null) return null;
+    return gameState.currentPlayer.id;
+  }
+
+  /// Send a game deleted event to all players in a game
+  void sendGameDeletedToPlayers(List<String> playerIds, EvtGameDeleted event) {
+    for (final userId in playerIds) {
+      final conn = _connections[userId];
+      if (conn != null) {
+        conn.send(event.toJson());
+      }
+    }
+    // Clean up room if exists
+    _rooms.remove(event.gameId);
+    _gameStates.remove(event.gameId);
+    _serverSeqs.remove(event.gameId);
   }
 }
 

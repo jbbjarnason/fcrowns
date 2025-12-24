@@ -27,13 +27,30 @@ class FriendsProvider extends ChangeNotifier {
 
     final result = await api.getFriends();
     if (result != null) {
-      _friends = List<Map<String, dynamic>>.from(result['friends'] ?? []);
-      _pendingIncoming = List<Map<String, dynamic>>.from(result['pendingIncoming'] ?? []);
-      _pendingOutgoing = List<Map<String, dynamic>>.from(result['pendingOutgoing'] ?? []);
+      // Extract user data from nested structure (FriendshipDto has 'user' object)
+      _friends = _extractUsers(result['friends']);
+      _pendingIncoming = _extractUsers(result['pendingIncoming']);
+      _pendingOutgoing = _extractUsers(result['pendingOutgoing']);
     }
 
     _isLoading = false;
     notifyListeners();
+  }
+
+  /// Extracts user info from FriendshipDto list to flat list of user maps
+  List<Map<String, dynamic>> _extractUsers(dynamic list) {
+    if (list == null) return [];
+    return List<Map<String, dynamic>>.from(
+      (list as List).map((item) {
+        // API returns { user: { id, username, displayName, avatarUrl }, status, ... }
+        final user = item['user'] as Map<String, dynamic>?;
+        if (user != null) {
+          return Map<String, dynamic>.from(user);
+        }
+        // Fallback: item might already be flat user object
+        return Map<String, dynamic>.from(item as Map);
+      }),
+    );
   }
 
   Future<void> searchUsers(String query) async {

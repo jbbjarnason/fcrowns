@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:beamer/beamer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -26,12 +28,23 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   late final GameProvider _game;
   late final LiveKitProvider _liveKit;
 
+  // Turn timer for nudge feature
+  String? _lastCurrentPlayerId;
+  DateTime? _turnStartTime;
+  bool _canNudge = false;
+  Timer? _nudgeTimer;
+
   @override
   void initState() {
     super.initState();
     // Store references before any async operations
     _game = ref.read(gameProvider);
     _liveKit = ref.read(liveKitProvider);
+
+    // Start timer to check for nudge eligibility
+    _nudgeTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      _checkNudgeEligibility();
+    });
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final auth = ref.read(authProvider);
@@ -52,8 +65,49 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     });
   }
 
+  void _checkNudgeEligibility() {
+    final game = ref.read(gameProvider);
+    final currentPlayerId = game.currentPlayerId;
+    final auth = ref.read(authProvider);
+
+    // Reset timer if turn changed
+    if (currentPlayerId != _lastCurrentPlayerId) {
+      _lastCurrentPlayerId = currentPlayerId;
+      _turnStartTime = DateTime.now();
+      if (_canNudge) {
+        setState(() => _canNudge = false);
+      }
+    }
+
+    // Check if 10 seconds have passed and it's not our turn
+    if (_turnStartTime != null &&
+        currentPlayerId != null &&
+        currentPlayerId != auth.userId &&
+        !_canNudge) {
+      final elapsed = DateTime.now().difference(_turnStartTime!);
+      if (elapsed.inSeconds >= 10) {
+        setState(() => _canNudge = true);
+      }
+    }
+  }
+
+  Future<void> _nudgeActivePlayer() async {
+    final game = ref.read(gameProvider);
+    final success = await game.nudgePlayer(widget.gameId);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(success ? 'Nudge sent!' : 'Failed to nudge')),
+      );
+      if (success) {
+        setState(() => _canNudge = false);
+        _turnStartTime = DateTime.now(); // Reset timer after nudge
+      }
+    }
+  }
+
   @override
   void dispose() {
+    _nudgeTimer?.cancel();
     _game.leaveGame();
     _liveKit.disconnect();
     super.dispose();
@@ -102,6 +156,26 @@ class _GameScreenState extends ConsumerState<GameScreen> {
         const SnackBar(content: Text('Cannot go out - invalid melds or cards remaining')),
       );
     }
+  }
+
+  String _getWhoseTurnText(game) {
+    final currentPlayerId = game.currentPlayerId;
+    if (currentPlayerId == null) return "Waiting...";
+
+    // Find current player
+    final players = game.players as List<Map<String, dynamic>>;
+    final currentPlayer = players.where((p) => p['id'] == currentPlayerId).firstOrNull;
+
+    if (currentPlayer == null) return "Waiting...";
+
+    final displayName = currentPlayer['displayName'] as String?;
+    final username = currentPlayer['username'] as String?;
+    var name = displayName ?? username ?? 'Player ${(currentPlayer['seat'] as int? ?? 0) + 1}';
+    // Cap name to 10 characters
+    if (name.length > 10) {
+      name = '${name.substring(0, 9)}…';
+    }
+    return "$name's turn";
   }
 
   void _showScoreboard(game) {
@@ -190,7 +264,18 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Five Crowns'),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(
+              'logo/five_crowns_icon_96.png',
+              width: 32,
+              height: 32,
+            ),
+            const SizedBox(width: 8),
+            const Text('Five Crowns'),
+          ],
+        ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
@@ -317,6 +402,10 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           final player = otherPlayers[index];
           final isCurrentTurn = player['id'] == game.currentPlayerId;
           final score = player['score'] ?? 0;
+          final displayName = player['displayName'] as String?;
+          final username = player['username'] as String?;
+          final name = displayName ?? username ?? 'P${player['seat'] + 1}';
+          final initials = name.length >= 2 ? name.substring(0, 2).toUpperCase() : name.toUpperCase();
           return Container(
             width: 80,
             margin: const EdgeInsets.only(right: 8),
@@ -342,7 +431,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                   ),
                   child: Center(
                     child: Text(
-                      'P${player['seat'] + 1}',
+                      initials,
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 12,
@@ -452,7 +541,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                 child: Text(
                   game.isMyTurn
                       ? "Your turn: ${game.turnPhase == 'mustDraw' ? 'Draw' : 'Discard'}"
-                      : "Waiting...",
+                      : _getWhoseTurnText(game),
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -460,6 +549,23 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                   ),
                 ),
               ),
+              // Nudge button (appears after 10 seconds when not my turn)
+              if (_canNudge && !game.isMyTurn)
+                Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: ElevatedButton.icon(
+                    onPressed: _nudgeActivePlayer,
+                    icon: const Icon(Icons.notifications_active, size: 16),
+                    label: const Text('Nudge'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      minimumSize: Size.zero,
+                      textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
             ],
           ),
         ],
@@ -770,7 +876,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          if (_selectedCards.length >= 3)
+          if (_selectedCards.length >= 3 && game.isValidMeld(_selectedCards.toList()))
             ElevatedButton(
               onPressed: _createMeldFromSelection,
               child: const Text('Create Meld'),

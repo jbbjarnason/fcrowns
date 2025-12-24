@@ -129,6 +129,21 @@ class UserStats extends Table {
   Set<Column> get primaryKey => {userId};
 }
 
+/// Notifications for game invitations and other events
+class Notifications extends Table {
+  TextColumn get id => text().clientDefault(() => _uuidGen.v4())();
+  TextColumn get userId => text().references(Users, #id, onDelete: KeyAction.cascade)();
+  TextColumn get type => text()(); // 'game_invitation', 'friend_request', etc.
+  TextColumn get fromUserId => text().nullable().references(Users, #id, onDelete: KeyAction.cascade)();
+  TextColumn get gameId => text().nullable().references(Games, #id, onDelete: KeyAction.cascade)();
+  TextColumn get status => text().withDefault(const Constant('pending'))(); // 'pending', 'read', 'accepted', 'declined'
+  DateTimeColumn get createdAt => dateTime().clientDefault(() => DateTime.now().toUtc())();
+  DateTimeColumn get readAt => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 @DriftDatabase(tables: [
   Users,
   EmailTokens,
@@ -140,12 +155,13 @@ class UserStats extends Table {
   GameSnapshots,
   GameResults,
   UserStats,
+  Notifications,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -154,6 +170,9 @@ class AppDatabase extends _$AppDatabase {
         },
         onUpgrade: (m, from, to) async {
           // Handle schema migrations here
+          if (from < 2) {
+            await m.createTable(notifications);
+          }
         },
       );
 

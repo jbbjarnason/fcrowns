@@ -7,6 +7,8 @@ on:
 env:
   FLUTTER_VERSION: '3.32.8'
   JAVA_VERSION: '17'
+  API_URL: 'https://fcrowns.centroid.is'
+  WS_URL: 'wss://fcrowns.centroid.is/ws'
 
 jobs:
   build-ios:
@@ -70,7 +72,9 @@ jobs:
         run: |
           cd app
           echo "$EXPORT_OPTIONS_PLIST" > ios/ExportOptions.plist
-          flutter build ipa --release --export-options-plist=ios/ExportOptions.plist
+          flutter build ipa --release --export-options-plist=ios/ExportOptions.plist \
+            --dart-define=API_URL=${{ env.API_URL }} \
+            --dart-define=WS_URL=${{ env.WS_URL }}
 
           IPA_NAME=$(ls build/ios/ipa/*.ipa | head -1 | xargs basename)
           echo "ipa_name=$IPA_NAME" >> $GITHUB_OUTPUT
@@ -134,12 +138,16 @@ jobs:
       - name: Build APK
         run: |
           cd app
-          flutter build apk --release
+          flutter build apk --release \
+            --dart-define=API_URL=${{ env.API_URL }} \
+            --dart-define=WS_URL=${{ env.WS_URL }}
 
       - name: Build App Bundle
         run: |
           cd app
-          flutter build appbundle --release
+          flutter build appbundle --release \
+            --dart-define=API_URL=${{ env.API_URL }} \
+            --dart-define=WS_URL=${{ env.WS_URL }}
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -177,7 +185,9 @@ jobs:
       - name: Build Web
         run: |
           cd app
-          flutter build web --release
+          flutter build web --release \
+            --dart-define=API_URL=${{ env.API_URL }} \
+            --dart-define=WS_URL=${{ env.WS_URL }}
 
       - name: Create web archive
         run: |

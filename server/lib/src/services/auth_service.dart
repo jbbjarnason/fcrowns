@@ -44,12 +44,14 @@ class AuthService {
 
   /// Creates a new user. Returns user ID.
   /// Throws if email or username already exists.
+  /// If [autoVerify] is true, user is immediately marked as verified.
   Future<String> createUser({
     required String email,
     required String password,
     required String username,
     required String displayName,
     String? avatarUrl,
+    bool autoVerify = false,
   }) async {
     final passwordHash = hashPassword(password);
     final userId = _uuid.v4();
@@ -61,6 +63,7 @@ class AuthService {
       username: username.toLowerCase(),
       displayName: displayName,
       avatarUrl: Value(avatarUrl),
+      emailVerifiedAt: autoVerify ? Value(DateTime.now().toUtc()) : const Value.absent(),
     ));
 
     return userId;

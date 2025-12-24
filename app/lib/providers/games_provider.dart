@@ -59,6 +59,22 @@ class GamesProvider extends ChangeNotifier {
     return success;
   }
 
+  Future<bool> deleteGame(String gameId) async {
+    final success = await api.deleteGame(gameId);
+    if (success) {
+      _games.removeWhere((g) => g['id'] == gameId);
+      if (_currentGame?['id'] == gameId) {
+        _currentGame = null;
+      }
+      notifyListeners();
+    }
+    return success;
+  }
+
+  Future<bool> nudgeHost(String gameId) async {
+    return await api.nudgeHost(gameId);
+  }
+
   Future<Map<String, dynamic>?> getLivekitToken(String gameId) async {
     return await api.getLivekitToken(gameId);
   }

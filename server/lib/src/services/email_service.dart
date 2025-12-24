@@ -13,13 +13,17 @@ class EmailService {
     required String baseUrl,
     String? smtpUsername,
     String? smtpPassword,
+    bool secure = false,
   })  : _smtp = SmtpServer(
           smtpHost,
           port: smtpPort,
           username: smtpUsername,
           password: smtpPassword,
-          ignoreBadCertificate: true,
-          allowInsecure: true,
+          // For production (secure=true): use SSL/TLS
+          // For local dev (secure=false): allow insecure connections
+          ssl: secure,
+          ignoreBadCertificate: !secure,
+          allowInsecure: !secure,
         ),
         _fromAddress = fromAddress,
         _baseUrl = baseUrl;

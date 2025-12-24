@@ -19,6 +19,8 @@ on:
 
 env:
   FLUTTER_VERSION: '3.32.8'
+  API_URL: 'https://fcrowns.centroid.is'
+  WS_URL: 'wss://fcrowns.centroid.is/ws'
 
 jobs:
   build-ios:
@@ -83,7 +85,9 @@ jobs:
         if: github.event_name == 'pull_request'
         run: |
           cd app
-          flutter build ios --release --no-codesign
+          flutter build ios --release --no-codesign \
+            --dart-define=API_URL=${{ env.API_URL }} \
+            --dart-define=WS_URL=${{ env.WS_URL }}
 
       - name: Build iOS IPA
         if: github.event_name != 'pull_request'
@@ -96,7 +100,9 @@ jobs:
           echo "$EXPORT_OPTIONS_PLIST" > ios/ExportOptions.plist
 
           # Build the app
-          flutter build ipa --release --export-options-plist=ios/ExportOptions.plist
+          flutter build ipa --release --export-options-plist=ios/ExportOptions.plist \
+            --dart-define=API_URL=${{ env.API_URL }} \
+            --dart-define=WS_URL=${{ env.WS_URL }}
 
       - name: Upload IPA artifact
         if: github.event_name != 'pull_request'

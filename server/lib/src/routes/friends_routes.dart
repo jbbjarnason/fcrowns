@@ -3,13 +3,19 @@ import 'package:drift/drift.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 import 'package:fivecrowns_protocol/fivecrowns_protocol.dart';
+import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
+import '../ws/ws_hub.dart';
+
+const _uuid = Uuid();
+String _generateId() => _uuid.v4();
 
 class FriendsRoutes {
   final AppDatabase db;
+  final WsHub wsHub;
 
-  FriendsRoutes({required this.db});
+  FriendsRoutes({required this.db, required this.wsHub});
 
   Router get router {
     final router = Router();
@@ -172,6 +178,29 @@ class FriendsRoutes {
         status: 'pending',
       ));
 
+      // Persist notification to database and send real-time notification
+      final sender = await (db.select(db.users)..where((u) => u.id.equals(userId))).getSingleOrNull();
+      if (sender != null) {
+        final notificationId = _generateId();
+        await db.into(db.notifications).insert(NotificationsCompanion.insert(
+          id: Value(notificationId),
+          userId: req.userId,
+          type: 'friend_request',
+          fromUserId: Value(userId),
+        ));
+
+        wsHub.sendNotificationToUser(
+          req.userId,
+          EvtNotification(
+            notificationType: NotificationType.friendRequest,
+            fromUserId: userId,
+            fromUsername: sender.username,
+            fromDisplayName: sender.displayName,
+            message: '${sender.displayName ?? sender.username} sent you a friend request',
+          ),
+        );
+      }
+
       return Response(201,
           body: jsonEncode({'status': 'pending'}),
           headers: {'content-type': 'application/json'});
@@ -209,6 +238,29 @@ class FriendsRoutes {
         friendId: req.userId,
         status: 'accepted',
       ));
+
+      // Persist notification and send real-time notification to the original requester
+      final accepter = await (db.select(db.users)..where((u) => u.id.equals(userId))).getSingleOrNull();
+      if (accepter != null) {
+        final notificationId = _generateId();
+        await db.into(db.notifications).insert(NotificationsCompanion.insert(
+          id: Value(notificationId),
+          userId: req.userId,
+          type: 'friend_accepted',
+          fromUserId: Value(userId),
+        ));
+
+        wsHub.sendNotificationToUser(
+          req.userId,
+          EvtNotification(
+            notificationType: NotificationType.friendAccepted,
+            fromUserId: userId,
+            fromUsername: accepter.username,
+            fromDisplayName: accepter.displayName,
+            message: '${accepter.displayName ?? accepter.username} accepted your friend request',
+          ),
+        );
+      }
 
       return Response(200,
           body: jsonEncode({'status': 'accepted'}),
@@ -266,6 +318,20 @@ class FriendsRoutes {
         status: 'blocked',
       ));
 
+      // Send real-time notification
+      final blocker = await (db.select(db.users)..where((u) => u.id.equals(userId))).getSingleOrNull();
+      if (blocker != null) {
+        wsHub.sendNotificationToUser(
+          req.userId,
+          EvtNotification(
+            notificationType: NotificationType.friendBlocked,
+            fromUserId: userId,
+            fromUsername: blocker.username,
+            fromDisplayName: blocker.displayName,
+          ),
+        );
+      }
+
       return Response(200,
           body: jsonEncode({'status': 'blocked'}),
           headers: {'content-type': 'application/json'});
@@ -283,6 +349,23 @@ class FriendsRoutes {
       ..where((f) => (f.userId.equals(userId) & f.friendId.equals(friendId)) |
                      (f.userId.equals(friendId) & f.friendId.equals(userId))))
         .go();
+
+    // Send real-time notification to the friend who was removed
+    final remover = await (db.select(db.users)..where((u) => u.id.equals(userId))).getSingleOrNull();
+    if (remover != null) {
+      // Note: Using friendBlocked type since there's no friendRemoved type yet
+      // This will still trigger the friend list refresh on the client
+      wsHub.sendNotificationToUser(
+        friendId,
+        EvtNotification(
+          notificationType: NotificationType.friendBlocked, // Using blocked as a workaround
+          fromUserId: userId,
+          fromUsername: remover.username,
+          fromDisplayName: remover.displayName,
+          message: '${remover.displayName ?? remover.username} removed you as a friend',
+        ),
+      );
+    }
 
     return Response(200,
         body: jsonEncode({'status': 'removed'}),

@@ -1,7 +1,21 @@
-api.example.com {
-  reverse_proxy server:8080
+# Five Crowns Production Caddyfile
+# Caddy automatically obtains and renews TLS certificates from Let's Encrypt
+
+# API and WebSocket server
+fcrowns.centroid.is {
+	# WebSocket endpoint
+	@websocket {
+		path /ws
+		header Connection *Upgrade*
+		header Upgrade websocket
+	}
+	reverse_proxy @websocket server:8080
+
+	# Regular HTTP API
+	reverse_proxy server:8080
 }
 
-livekit.example.com {
-  reverse_proxy livekit:7880
+# LiveKit server (WebRTC signaling)
+livekit.fcrowns.centroid.is {
+	reverse_proxy livekit:7880
 }

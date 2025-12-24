@@ -10,6 +10,8 @@ on:
 
 env:
   FLUTTER_VERSION: '3.32.8'
+  API_URL: 'https://fcrowns.centroid.is'
+  WS_URL: 'wss://fcrowns.centroid.is/ws'
 
 jobs:
   build-web:
@@ -34,7 +36,9 @@ jobs:
       - name: Build Web
         run: |
           cd app
-          flutter build web --release
+          flutter build web --release \
+            --dart-define=API_URL=${{ env.API_URL }} \
+            --dart-define=WS_URL=${{ env.WS_URL }}
 
       - name: Upload Web artifact
         uses: actions/upload-artifact@v4

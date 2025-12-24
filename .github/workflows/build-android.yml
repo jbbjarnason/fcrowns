@@ -20,6 +20,8 @@ on:
 env:
   FLUTTER_VERSION: '3.32.8'
   JAVA_VERSION: '17'
+  API_URL: 'https://fcrowns.centroid.is'
+  WS_URL: 'wss://fcrowns.centroid.is/ws'
 
 jobs:
   build-android:
@@ -72,19 +74,25 @@ jobs:
         if: github.event_name == 'pull_request'
         run: |
           cd app
-          flutter build apk --debug
+          flutter build apk --debug \
+            --dart-define=API_URL=${{ env.API_URL }} \
+            --dart-define=WS_URL=${{ env.WS_URL }}
 
       - name: Build APK (release)
         if: github.event_name != 'pull_request'
         run: |
           cd app
-          flutter build apk --release
+          flutter build apk --release \
+            --dart-define=API_URL=${{ env.API_URL }} \
+            --dart-define=WS_URL=${{ env.WS_URL }}
 
       - name: Build App Bundle (release)
         if: github.event_name != 'pull_request'
         run: |
           cd app
-          flutter build appbundle --release
+          flutter build appbundle --release \
+            --dart-define=API_URL=${{ env.API_URL }} \
+            --dart-define=WS_URL=${{ env.WS_URL }}
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4

@@ -9,10 +9,12 @@ import '../services/email_service.dart';
 class AuthRoutes {
   final AuthService authService;
   final EmailService emailService;
+  final bool skipEmailVerification;
 
   AuthRoutes({
     required this.authService,
     required this.emailService,
+    this.skipEmailVerification = false,
   });
 
   Router get router {
@@ -21,6 +23,7 @@ class AuthRoutes {
     router.get('/health', _health);
     router.post('/signup', _signup);
     router.post('/verify', _verify);
+    router.get('/verify', _verifyGet);  // Handle email link clicks
     router.post('/login', _login);
     router.post('/refresh', _refresh);
     router.post('/password-reset/request', _passwordResetRequest);
@@ -69,25 +72,29 @@ class AuthRoutes {
       // Sanitize HTML from displayName to prevent XSS
       final sanitizedDisplayName = _sanitizeHtml(req.displayName);
 
-      // Create user
+      // Create user (auto-verify if skip flag is set)
       final userId = await authService.createUser(
         email: req.email,
         password: req.password,
         username: req.username,
         displayName: sanitizedDisplayName,
         avatarUrl: req.avatarUrl,
+        autoVerify: skipEmailVerification,
       );
 
-      // Create verification token and send email
-      final token = await authService.createVerificationToken(userId);
-      await emailService.sendVerificationEmail(
-        toEmail: req.email,
-        username: req.username,
-        token: token,
-      );
+      // Skip email if verification is disabled (for local dev)
+      if (!skipEmailVerification) {
+        final token = await authService.createVerificationToken(userId);
+        await emailService.sendVerificationEmail(
+          toEmail: req.email,
+          username: req.username,
+          token: token,
+        );
+      }
 
+      final message = skipEmailVerification ? 'account_created' : 'verification_sent';
       return Response(201,
-          body: jsonEncode(SignupResponse(message: 'verification_sent').toJson()),
+          body: jsonEncode(SignupResponse(message: message).toJson()),
           headers: {'content-type': 'application/json'});
     } on FormatException {
       return _errorResponse(400, 'invalid_json', 'Invalid JSON');
@@ -117,6 +124,59 @@ class AuthRoutes {
     } on FormatException {
       return _errorResponse(400, 'invalid_json', 'Invalid JSON');
     }
+  }
+
+  /// Handle GET requests from email verification links
+  Future<Response> _verifyGet(Request request) async {
+    final token = request.url.queryParameters['token'];
+    if (token == null || token.isEmpty) {
+      return Response(400,
+          body: _htmlPage('Error', 'Missing verification token.', false),
+          headers: {'content-type': 'text/html'});
+    }
+
+    final success = await authService.verifyEmail(token);
+    if (!success) {
+      return Response(400,
+          body: _htmlPage('Verification Failed', 'Invalid or expired verification link.', false),
+          headers: {'content-type': 'text/html'});
+    }
+
+    return Response(200,
+        body: _htmlPage('Email Verified!', 'Your email has been verified. You can now log in to the app.', true),
+        headers: {'content-type': 'text/html'});
+  }
+
+  String _htmlPage(String title, String message, bool success) {
+    final color = success ? '#4CAF50' : '#f44336';
+    final icon = success ? '&#10004;' : '&#10008;';
+    return '''
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>$title - Five Crowns</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+           display: flex; justify-content: center; align-items: center;
+           min-height: 100vh; margin: 0; background: #f5f5f5; }
+    .card { background: white; padding: 40px; border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; max-width: 400px; }
+    .icon { font-size: 64px; color: $color; }
+    h1 { color: #333; margin: 20px 0 10px; }
+    p { color: #666; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">$icon</div>
+    <h1>$title</h1>
+    <p>$message</p>
+  </div>
+</body>
+</html>
+''';
   }
 
   Future<Response> _login(Request request) async {

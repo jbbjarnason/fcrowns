@@ -52,6 +52,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  Image.asset(
+                    'logo/five_crowns_icon_256.png',
+                    width: 120,
+                    height: 120,
+                  ),
+                  const SizedBox(height: 16),
                   const Text(
                     'Five Crowns',
                     style: TextStyle(

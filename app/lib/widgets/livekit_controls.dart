@@ -32,6 +32,9 @@ class LiveKitControls extends ConsumerWidget {
       children: [
         // Mic toggle button
         _AudioButton(isEnabled: livekit.audioEnabled),
+        const SizedBox(width: 4),
+        // Speaker toggle button
+        _SpeakerButton(isEnabled: livekit.speakerEnabled),
         const SizedBox(width: 8),
         // Connection status indicator
         _ConnectionIndicator(isConnected: livekit.isConnected),
@@ -40,20 +43,100 @@ class LiveKitControls extends ConsumerWidget {
   }
 }
 
-class _AudioButton extends ConsumerWidget {
+class _AudioButton extends ConsumerStatefulWidget {
   final bool isEnabled;
 
   const _AudioButton({required this.isEnabled});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return IconButton(
-      icon: Icon(
-        isEnabled ? Icons.mic : Icons.mic_off,
-        color: isEnabled ? AppTheme.success : AppTheme.error,
+  ConsumerState<_AudioButton> createState() => _AudioButtonState();
+}
+
+class _AudioButtonState extends ConsumerState<_AudioButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animController;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animController = AnimationController(
+      duration: const Duration(milliseconds: 150),
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.85).animate(
+      CurvedAnimation(parent: _animController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _animController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(_AudioButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isEnabled != widget.isEnabled) {
+      // Animate on state change
+      _animController.forward().then((_) => _animController.reverse());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _scaleAnimation,
+      builder: (context, child) => Transform.scale(
+        scale: _scaleAnimation.value,
+        child: child,
       ),
-      onPressed: () => ref.read(liveKitProvider).toggleAudio(),
-      tooltip: isEnabled ? 'Mute' : 'Unmute',
+      child: Container(
+        decoration: BoxDecoration(
+          color: widget.isEnabled
+              ? AppTheme.success.withValues(alpha: 0.15)
+              : AppTheme.error.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: IconButton(
+          icon: Icon(
+            widget.isEnabled ? Icons.mic : Icons.mic_off,
+            color: widget.isEnabled ? AppTheme.success : AppTheme.error,
+          ),
+          onPressed: () {
+            _animController.forward().then((_) => _animController.reverse());
+            ref.read(liveKitProvider).toggleAudio();
+          },
+          tooltip: widget.isEnabled ? 'Mute microphone' : 'Unmute microphone',
+        ),
+      ),
+    );
+  }
+}
+
+class _SpeakerButton extends ConsumerWidget {
+  final bool isEnabled;
+
+  const _SpeakerButton({required this.isEnabled});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isEnabled
+            ? AppTheme.success.withValues(alpha: 0.15)
+            : AppTheme.error.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: IconButton(
+        icon: Icon(
+          isEnabled ? Icons.volume_up : Icons.volume_off,
+          color: isEnabled ? AppTheme.success : AppTheme.error,
+        ),
+        onPressed: () => ref.read(liveKitProvider).toggleSpeaker(),
+        tooltip: isEnabled ? 'Mute speakers' : 'Unmute speakers',
+      ),
     );
   }
 }
@@ -85,10 +168,12 @@ class ActivePlayerVideo extends ConsumerWidget {
     final livekit = ref.watch(liveKitProvider);
     final videoTrack = livekit.activePlayerVideoTrack;
 
+    debugPrint('[ActivePlayerVideo] videoTrack: $videoTrack, activePlayer: ${livekit.activePlayerId}, connected: ${livekit.isConnected}');
+
     if (videoTrack == null) {
       return Container(
-        width: 120,
-        height: 90,
+        width: 140,
+        height: 180,
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(AppTheme.radiusMd),
@@ -100,9 +185,9 @@ class ActivePlayerVideo extends ConsumerWidget {
             Icon(
               Icons.videocam_off,
               color: Theme.of(context).disabledColor,
-              size: 24,
+              size: 32,
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 8),
             Text(
               'No video',
               style: Theme.of(context).textTheme.bodySmall,
@@ -112,12 +197,19 @@ class ActivePlayerVideo extends ConsumerWidget {
       );
     }
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-      child: SizedBox(
-        width: 120,
-        height: 90,
-        child: VideoTrackRenderer(videoTrack),
+    return Container(
+      width: 140,
+      height: 180,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Theme.of(context).dividerColor),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(11),
+        child: VideoTrackRenderer(
+          videoTrack,
+          fit: VideoViewFit.cover,
+        ),
       ),
     );
   }

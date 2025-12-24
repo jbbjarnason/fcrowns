@@ -9,6 +9,7 @@ import '../screens/friends_screen.dart';
 import '../screens/game_lobby_screen.dart';
 import '../screens/game_screen.dart';
 import '../screens/stats_screen.dart';
+import '../screens/profile_screen.dart';
 
 class AuthLocation extends BeamLocation<BeamState> {
   @override
@@ -58,6 +59,7 @@ class GamesLocation extends BeamLocation<BeamState> {
     '/games/:gameId/play',
     '/friends',
     '/stats',
+    '/profile',
   ];
 
   @override
@@ -73,10 +75,12 @@ class GamesLocation extends BeamLocation<BeamState> {
 
     // Friends screen
     if (state.pathPatternSegments.contains('friends')) {
-      pages.add(const BeamPage(
-        key: ValueKey('friends'),
+      final tabParam = state.queryParameters['tab'];
+      final initialTab = tabParam == 'requests' ? 1 : (tabParam == 'search' ? 2 : 0);
+      pages.add(BeamPage(
+        key: ValueKey('friends-$initialTab'),
         title: 'Friends',
-        child: FriendsScreen(),
+        child: FriendsScreen(initialTab: initialTab),
       ));
     }
 
@@ -86,6 +90,15 @@ class GamesLocation extends BeamLocation<BeamState> {
         key: ValueKey('stats'),
         title: 'My Stats',
         child: StatsScreen(),
+      ));
+    }
+
+    // Profile screen
+    if (state.pathPatternSegments.contains('profile')) {
+      pages.add(const BeamPage(
+        key: ValueKey('profile'),
+        title: 'My Profile',
+        child: ProfileScreen(),
       ));
     }
 

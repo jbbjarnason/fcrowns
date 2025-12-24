@@ -285,4 +285,79 @@ void main() {
       expect(response.statusCode, 403);
     });
   });
+
+  group('Game Nudge', () {
+    late String gameId;
+
+    setUp(() async {
+      // User1 creates a game
+      final response = await harness.request(
+        'POST',
+        '/games/',
+        body: {'maxPlayers': 4},
+        authToken: user1Token,
+      );
+      gameId = (await harness.parseJson(response))['gameId'] as String;
+
+      // Invite user2
+      await harness.request(
+        'POST',
+        '/games/$gameId/invite',
+        body: {'userId': user2Id},
+        authToken: user1Token,
+      );
+    });
+
+    test('guest can nudge host', () async {
+      final response = await harness.request(
+        'POST',
+        '/games/$gameId/nudge',
+        authToken: user2Token,
+      );
+
+      expect(response.statusCode, 200);
+      final json = await harness.parseJson(response);
+      expect(json['status'], 'nudged');
+    });
+
+    test('host cannot nudge themselves', () async {
+      final response = await harness.request(
+        'POST',
+        '/games/$gameId/nudge',
+        authToken: user1Token,
+      );
+
+      expect(response.statusCode, 400);
+      final json = await harness.parseJson(response);
+      expect(json['error'], 'is_host');
+    });
+
+    test('non-member cannot nudge', () async {
+      final response = await harness.request(
+        'POST',
+        '/games/$gameId/nudge',
+        authToken: user3Token, // not in game
+      );
+
+      expect(response.statusCode, 403);
+    });
+
+    test('cannot nudge after game started', () async {
+      // Start the game via WebSocket is complex in tests,
+      // so we'll just update the game status directly in DB
+      await harness.db.customStatement(
+        "UPDATE games SET status = 'active' WHERE id = '$gameId'"
+      );
+
+      final response = await harness.request(
+        'POST',
+        '/games/$gameId/nudge',
+        authToken: user2Token,
+      );
+
+      expect(response.statusCode, 400);
+      final json = await harness.parseJson(response);
+      expect(json['error'], 'game_started');
+    });
+  });
 }

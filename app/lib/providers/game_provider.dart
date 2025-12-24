@@ -237,6 +237,8 @@ class GameProvider extends ChangeNotifier {
       'score': p.score,
       'handCount': p.handCount,
       'melds': p.melds,
+      'username': p.username,
+      'displayName': p.displayName,
     }).toList();
 
     // Find my melds from player list
@@ -290,6 +292,13 @@ class GameProvider extends ChangeNotifier {
     }
   }
 
+  /// Check if the given card codes form a valid meld
+  bool isValidMeld(List<String> cardCodes) {
+    if (cardCodes.length < 3) return false;
+    final cards = cardCodes.map((c) => Card.decode(c)).toList();
+    return MeldValidator.isValidMeld(cards, _roundNumber);
+  }
+
   bool canGoOut(List<List<String>> melds, String discard) {
     // Create temporary hand without cards in melds
     final remainingHand = List<String>.from(_hand);
@@ -328,6 +337,11 @@ class GameProvider extends ChangeNotifier {
   void clearError() {
     _error = null;
     if (!_disposed) notifyListeners();
+  }
+
+  /// Nudge the active player (when they're taking too long)
+  Future<bool> nudgePlayer(String gameId) async {
+    return await api.nudgePlayer(gameId);
   }
 
   @override

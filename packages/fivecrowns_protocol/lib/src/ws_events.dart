@@ -14,6 +14,8 @@ abstract class WsEvent {
       'evt.state' => EvtState.fromJson(json),
       'evt.event' => EvtEvent.fromJson(json),
       'evt.error' => EvtError.fromJson(json),
+      'evt.notification' => EvtNotification.fromJson(json),
+      'evt.game_deleted' => EvtGameDeleted.fromJson(json),
       _ => throw ArgumentError('Unknown event type: $type'),
     };
   }
@@ -52,6 +54,8 @@ class PlayerStateDto {
   final int handCount;
   final List<List<String>> melds;
   final List<String>? hand;
+  final String? username;
+  final String? displayName;
 
   PlayerStateDto({
     required this.id,
@@ -60,6 +64,8 @@ class PlayerStateDto {
     required this.handCount,
     required this.melds,
     this.hand,
+    this.username,
+    this.displayName,
   });
 
   factory PlayerStateDto.fromJson(Map<String, dynamic> json) => PlayerStateDto(
@@ -73,6 +79,8 @@ class PlayerStateDto {
         hand: json['hand'] != null
             ? (json['hand'] as List).cast<String>()
             : null,
+        username: json['username'] as String?,
+        displayName: json['displayName'] as String?,
       );
 
   Map<String, dynamic> toJson() {
@@ -85,6 +93,12 @@ class PlayerStateDto {
     };
     if (hand != null) {
       result['hand'] = hand;
+    }
+    if (username != null) {
+      result['username'] = username;
+    }
+    if (displayName != null) {
+      result['displayName'] = displayName;
     }
     return result;
   }
@@ -284,4 +298,115 @@ class EvtError implements WsEvent {
     if (clientSeq != null) result['clientSeq'] = clientSeq;
     return result;
   }
+}
+
+/// Notification event types
+enum NotificationType {
+  gameInvitation,
+  friendRequest,
+  friendAccepted,
+  friendBlocked,
+  gameDeleted,
+  gameNudge;
+
+  static NotificationType fromString(String s) => switch (s) {
+        'game_invitation' => NotificationType.gameInvitation,
+        'friend_request' => NotificationType.friendRequest,
+        'friend_accepted' => NotificationType.friendAccepted,
+        'friend_blocked' => NotificationType.friendBlocked,
+        'game_deleted' => NotificationType.gameDeleted,
+        'game_nudge' => NotificationType.gameNudge,
+        _ => throw ArgumentError('Invalid notification type: $s'),
+      };
+
+  String toJsonString() => switch (this) {
+        NotificationType.gameInvitation => 'game_invitation',
+        NotificationType.friendRequest => 'friend_request',
+        NotificationType.friendAccepted => 'friend_accepted',
+        NotificationType.friendBlocked => 'friend_blocked',
+        NotificationType.gameDeleted => 'game_deleted',
+        NotificationType.gameNudge => 'game_nudge',
+      };
+}
+
+/// Real-time notification event
+class EvtNotification implements WsEvent {
+  @override
+  String get type => 'evt.notification';
+  @override
+  int? get serverSeq => null;
+  @override
+  String? get gameId => _gameId;
+
+  final String? _gameId;
+  final NotificationType notificationType;
+  final String? fromUserId;
+  final String? fromUsername;
+  final String? fromDisplayName;
+  final String? message;
+
+  EvtNotification({
+    String? gameId,
+    required this.notificationType,
+    this.fromUserId,
+    this.fromUsername,
+    this.fromDisplayName,
+    this.message,
+  }) : _gameId = gameId;
+
+  factory EvtNotification.fromJson(Map<String, dynamic> json) => EvtNotification(
+        gameId: json['gameId'] as String?,
+        notificationType: NotificationType.fromString(json['notificationType'] as String),
+        fromUserId: json['fromUserId'] as String?,
+        fromUsername: json['fromUsername'] as String?,
+        fromDisplayName: json['fromDisplayName'] as String?,
+        message: json['message'] as String?,
+      );
+
+  @override
+  Map<String, dynamic> toJson() {
+    final result = <String, dynamic>{
+      'type': type,
+      'notificationType': notificationType.toJsonString(),
+    };
+    if (_gameId != null) result['gameId'] = _gameId;
+    if (fromUserId != null) result['fromUserId'] = fromUserId;
+    if (fromUsername != null) result['fromUsername'] = fromUsername;
+    if (fromDisplayName != null) result['fromDisplayName'] = fromDisplayName;
+    if (message != null) result['message'] = message;
+    return result;
+  }
+}
+
+/// Game deleted event - sent to all players when host deletes a game
+class EvtGameDeleted implements WsEvent {
+  @override
+  String get type => 'evt.game_deleted';
+  @override
+  int? get serverSeq => null;
+  @override
+  final String gameId;
+
+  final String deletedByUserId;
+  final String deletedByUsername;
+
+  EvtGameDeleted({
+    required this.gameId,
+    required this.deletedByUserId,
+    required this.deletedByUsername,
+  });
+
+  factory EvtGameDeleted.fromJson(Map<String, dynamic> json) => EvtGameDeleted(
+        gameId: json['gameId'] as String,
+        deletedByUserId: json['deletedByUserId'] as String,
+        deletedByUsername: json['deletedByUsername'] as String,
+      );
+
+  @override
+  Map<String, dynamic> toJson() => {
+        'type': type,
+        'gameId': gameId,
+        'deletedByUserId': deletedByUserId,
+        'deletedByUsername': deletedByUsername,
+      };
 }

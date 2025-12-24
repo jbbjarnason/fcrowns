@@ -45,5 +45,10 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<!-- Camera and microphone for LiveKit -->
+	<key>NSCameraUsageDescription</key>
+	<string>Camera access is needed for video calls during games</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Microphone access is needed for voice chat during games</string>
 </dict>
 </plist>

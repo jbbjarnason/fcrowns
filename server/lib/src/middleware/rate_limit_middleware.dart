@@ -6,6 +6,7 @@ import 'package:shelf/shelf.dart';
 class RateLimiter {
   final int maxRequests;
   final Duration window;
+  final bool trustProxy;
   final Map<String, _RateLimit> _limits = {};
 
   /// Check if rate limiting is disabled (for testing)
@@ -15,6 +16,7 @@ class RateLimiter {
   RateLimiter({
     this.maxRequests = 60,
     this.window = const Duration(minutes: 1),
+    this.trustProxy = false,
   });
 
   /// Middleware for general API rate limiting
@@ -44,7 +46,7 @@ class RateLimiter {
 
   /// Stricter middleware for auth endpoints
   Middleware authMiddleware() {
-    final authLimiter = RateLimiter(maxRequests: 10, window: const Duration(minutes: 5));
+    final authLimiter = RateLimiter(maxRequests: 10, window: const Duration(minutes: 5), trustProxy: trustProxy);
     return (Handler innerHandler) {
       return (Request request) async {
         // Skip rate limiting if disabled (for testing)
@@ -52,7 +54,7 @@ class RateLimiter {
           return innerHandler(request);
         }
 
-        final clientIp = _getClientIp(request);
+        final clientIp = authLimiter._getClientIp(request);
 
         if (!authLimiter._checkLimit(clientIp)) {
           return Response(429,
@@ -91,19 +93,26 @@ class RateLimiter {
   }
 
   String _getClientIp(Request request) {
-    // Check common proxy headers
-    final forwarded = request.headers['x-forwarded-for'];
-    if (forwarded != null && forwarded.isNotEmpty) {
-      return forwarded.split(',').first.trim();
+    // Only trust proxy headers if explicitly configured
+    // This prevents IP spoofing when not behind a trusted proxy
+    if (trustProxy) {
+      final forwarded = request.headers['x-forwarded-for'];
+      if (forwarded != null && forwarded.isNotEmpty) {
+        // Take the first IP (client IP) from the chain
+        return forwarded.split(',').first.trim();
+      }
+
+      final realIp = request.headers['x-real-ip'];
+      if (realIp != null && realIp.isNotEmpty) {
+        return realIp;
+      }
     }
 
-    final realIp = request.headers['x-real-ip'];
-    if (realIp != null && realIp.isNotEmpty) {
-      return realIp;
-    }
-
-    // Fallback to connection info (if available)
-    return 'unknown';
+    // Use connection info or fallback
+    // Note: shelf doesn't expose connection info directly,
+    // so we hash the request to create a semi-unique identifier
+    // In production behind a proxy, trustProxy should be true
+    return 'direct-${request.headers['user-agent']?.hashCode ?? 'unknown'}';
   }
 }
 

@@ -46,6 +46,10 @@ app/web/favicon.png
 
 # Credentials and secrets
 .env
+*.env
+!*.env.example
+infra/.env
+server/.env
 *.pem
 *_creds.json
 credentials.json
@@ -53,6 +57,9 @@ key.properties
 *.jks
 *.keystore
 ExportOptions.plist
+
+# LiveKit config (contains secrets in production)
+infra/livekit.yaml
 
 # Test artifacts
 /tmp/

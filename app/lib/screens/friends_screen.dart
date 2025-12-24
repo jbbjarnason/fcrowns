@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/providers.dart';
 
 class FriendsScreen extends ConsumerStatefulWidget {
-  const FriendsScreen({super.key});
+  final int initialTab;
+
+  const FriendsScreen({super.key, this.initialTab = 0});
 
   @override
   ConsumerState<FriendsScreen> createState() => _FriendsScreenState();
@@ -17,7 +19,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> with SingleTicker
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 3, vsync: this, initialIndex: widget.initialTab);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(friendsProvider).loadFriends();
     });
@@ -225,6 +227,11 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> with SingleTicker
               }
 
               return ListView.builder(
+                physics: const AlwaysScrollableScrollPhysics(),
+                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+                ),
                 itemCount: friends.searchResults.length,
                 itemBuilder: (context, index) {
                   final user = friends.searchResults[index];

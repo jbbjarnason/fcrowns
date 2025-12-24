@@ -258,3 +258,52 @@ Future<bool> invitePlayer(String accessToken, String gameId, String userId) asyn
   );
   return response.statusCode == 200;
 }
+
+/// Deletes a game via API (host only)
+Future<bool> deleteGame(String accessToken, String gameId) async {
+  final response = await http.delete(
+    Uri.parse('$apiUrl/games/$gameId'),
+    headers: {'Authorization': 'Bearer $accessToken'},
+  );
+  return response.statusCode == 200;
+}
+
+/// Blocks a user via API
+Future<bool> blockUser(String accessToken, String userId) async {
+  final response = await http.post(
+    Uri.parse('$apiUrl/friends/block'),
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $accessToken',
+    },
+    body: jsonEncode({'userId': userId}),
+  );
+  return response.statusCode == 200;
+}
+
+/// Gets friends list via API
+Future<Map<String, dynamic>?> getFriends(String accessToken) async {
+  final response = await http.get(
+    Uri.parse('$apiUrl/friends/'),
+    headers: {'Authorization': 'Bearer $accessToken'},
+  );
+
+  if (response.statusCode == 200) {
+    return jsonDecode(response.body);
+  }
+  return null;
+}
+
+/// Gets games list via API
+Future<List<dynamic>?> getGames(String accessToken) async {
+  final response = await http.get(
+    Uri.parse('$apiUrl/games/'),
+    headers: {'Authorization': 'Bearer $accessToken'},
+  );
+
+  if (response.statusCode == 200) {
+    final data = jsonDecode(response.body);
+    return data['games'] as List<dynamic>;
+  }
+  return null;
+}

@@ -26,6 +26,7 @@ class ApiService {
     String path, {
     Map<String, dynamic>? body,
     bool auth = true,
+    int retryCount = 0,
   }) async {
     final uri = Uri.parse('$baseUrl$path');
     final headers = <String, String>{
@@ -40,18 +41,27 @@ class ApiService {
     }
 
     http.Response response;
-    switch (method) {
-      case 'GET':
-        response = await http.get(uri, headers: headers);
-        break;
-      case 'POST':
-        response = await http.post(uri, headers: headers, body: body != null ? jsonEncode(body) : null);
-        break;
-      case 'DELETE':
-        response = await http.delete(uri, headers: headers);
-        break;
-      default:
-        throw ArgumentError('Unsupported method: $method');
+    try {
+      switch (method) {
+        case 'GET':
+          response = await http.get(uri, headers: headers);
+          break;
+        case 'POST':
+          response = await http.post(uri, headers: headers, body: body != null ? jsonEncode(body) : null);
+          break;
+        case 'DELETE':
+          response = await http.delete(uri, headers: headers);
+          break;
+        default:
+          throw ArgumentError('Unsupported method: $method');
+      }
+    } catch (e) {
+      // Retry on network errors (timeout, socket exception, etc.)
+      if (retryCount < 2) {
+        await Future.delayed(const Duration(seconds: 1));
+        return _request(method, path, body: body, auth: auth, retryCount: retryCount + 1);
+      }
+      rethrow;
     }
 
     // Auto-refresh on 401
@@ -245,12 +255,61 @@ class ApiService {
     return response.statusCode == 200;
   }
 
+  Future<bool> deleteGame(String gameId) async {
+    final response = await delete('/games/$gameId');
+    return response.statusCode == 200;
+  }
+
+  Future<bool> nudgeHost(String gameId) async {
+    final response = await post('/games/$gameId/nudge');
+    return response.statusCode == 200;
+  }
+
+  Future<bool> nudgePlayer(String gameId) async {
+    final response = await post('/games/$gameId/nudge-player');
+    return response.statusCode == 200;
+  }
+
   Future<Map<String, dynamic>?> getLivekitToken(String gameId) async {
     final response = await post('/games/$gameId/livekit-token');
     if (response.statusCode == 200) {
       return jsonDecode(response.body);
     }
     return null;
+  }
+
+  // Notifications endpoints
+  Future<List<Map<String, dynamic>>> getNotifications() async {
+    final response = await get('/notifications/');
+    if (response.statusCode == 200) {
+      final json = jsonDecode(response.body);
+      return List<Map<String, dynamic>>.from(json['notifications']);
+    }
+    return [];
+  }
+
+  Future<int> getUnreadNotificationCount() async {
+    final response = await get('/notifications/count');
+    if (response.statusCode == 200) {
+      final json = jsonDecode(response.body);
+      return json['count'] as int;
+    }
+    return 0;
+  }
+
+  Future<bool> markNotificationAsRead(String notificationId) async {
+    final response = await post('/notifications/$notificationId/read');
+    return response.statusCode == 200;
+  }
+
+  Future<bool> deleteNotification(String notificationId) async {
+    final response = await delete('/notifications/$notificationId');
+    return response.statusCode == 200;
+  }
+
+  Future<bool> clearAllNotifications() async {
+    final response = await delete('/notifications/');
+    return response.statusCode == 200;
   }
 
   // Stats endpoints

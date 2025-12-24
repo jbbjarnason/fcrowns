@@ -6,6 +6,7 @@ import 'friends_provider.dart';
 import 'games_provider.dart';
 import 'game_provider.dart';
 import 'livekit_provider.dart';
+import 'notifications_provider.dart';
 
 // Re-export provider classes for type usage
 export 'auth_provider.dart' show AuthProvider;
@@ -13,13 +14,34 @@ export 'friends_provider.dart' show FriendsProvider;
 export 'games_provider.dart' show GamesProvider;
 export 'game_provider.dart' show GameProvider;
 export 'livekit_provider.dart' show LiveKitProvider;
+export 'notifications_provider.dart' show NotificationsProvider;
 
-// Configure these for your deployment
-const String apiBaseUrl = String.fromEnvironment('API_URL', defaultValue: 'http://localhost:8080');
-const String wsBaseUrl = String.fromEnvironment('WS_URL', defaultValue: 'ws://localhost:8080/ws');
+// Configure these via --dart-define at build time:
+//   flutter run --dart-define=API_URL=https://api.example.com
+//   flutter build --dart-define=API_URL=https://api.example.com
+//
+// For production builds, API_URL and WS_URL MUST be provided.
+// The defaults below are for local development only.
+const String apiBaseUrl = String.fromEnvironment('API_URL');
+const String wsBaseUrl = String.fromEnvironment('WS_URL');
+
+// Validate URLs at startup - will fail fast if not configured
+void _validateConfig() {
+  if (apiBaseUrl.isEmpty) {
+    throw StateError(
+      'API_URL not configured. Build with: --dart-define=API_URL=https://your-api.com',
+    );
+  }
+  if (wsBaseUrl.isEmpty) {
+    throw StateError(
+      'WS_URL not configured. Build with: --dart-define=WS_URL=wss://your-api.com/ws',
+    );
+  }
+}
 
 // Core services
 final apiServiceProvider = Provider<ApiService>((ref) {
+  _validateConfig();
   return ApiService(baseUrl: apiBaseUrl);
 });
 
@@ -30,7 +52,8 @@ final wsServiceProvider = Provider<WebSocketService>((ref) {
 // State providers
 final authProvider = ChangeNotifierProvider<AuthProvider>((ref) {
   final api = ref.watch(apiServiceProvider);
-  return AuthProvider(api: api);
+  final ws = ref.watch(wsServiceProvider);
+  return AuthProvider(api: api, ws: ws);
 });
 
 final friendsProvider = ChangeNotifierProvider<FriendsProvider>((ref) {
@@ -51,4 +74,10 @@ final gameProvider = ChangeNotifierProvider<GameProvider>((ref) {
 
 final liveKitProvider = ChangeNotifierProvider<LiveKitProvider>((ref) {
   return LiveKitProvider();
+});
+
+final notificationsProvider = ChangeNotifierProvider<NotificationsProvider>((ref) {
+  final api = ref.watch(apiServiceProvider);
+  final ws = ref.watch(wsServiceProvider);
+  return NotificationsProvider(api: api, ws: ws);
 });
