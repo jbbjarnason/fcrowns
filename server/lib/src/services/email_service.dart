@@ -1,5 +1,8 @@
+import 'package:logging/logging.dart';
 import 'package:mailer/mailer.dart';
 import 'package:mailer/smtp_server.dart';
+
+final _log = Logger('EmailService');
 
 class EmailService {
   final SmtpServer _smtp;
@@ -19,11 +22,12 @@ class EmailService {
           port: smtpPort,
           username: smtpUsername,
           password: smtpPassword,
-          // For production (secure=true): use SSL/TLS
-          // For local dev (secure=false): allow insecure connections
+          // secure=true: use implicit SSL (port 465)
+          // secure=false: use STARTTLS (port 587) or plaintext for local dev
           ssl: secure,
-          ignoreBadCertificate: !secure,
-          allowInsecure: !secure,
+          // For local dev (mailpit), allow insecure; for production, require TLS
+          ignoreBadCertificate: smtpHost == 'localhost' || smtpHost == 'mailpit',
+          allowInsecure: smtpHost == 'localhost' || smtpHost == 'mailpit',
         ),
         _fromAddress = fromAddress,
         _baseUrl = baseUrl;
@@ -68,7 +72,14 @@ class EmailService {
 </html>
 ''';
 
-    await send(message, _smtp);
+    try {
+      _log.info('Sending verification email to $toEmail');
+      final result = await send(message, _smtp);
+      _log.info('Email sent successfully: ${result.mail.subject}');
+    } catch (e, st) {
+      _log.severe('Failed to send verification email to $toEmail: $e', e, st);
+      rethrow;
+    }
   }
 
   /// Sends a password reset email.
@@ -111,6 +122,13 @@ class EmailService {
 </html>
 ''';
 
-    await send(message, _smtp);
+    try {
+      _log.info('Sending password reset email to $toEmail');
+      final result = await send(message, _smtp);
+      _log.info('Email sent successfully: ${result.mail.subject}');
+    } catch (e, st) {
+      _log.severe('Failed to send password reset email to $toEmail: $e', e, st);
+      rethrow;
+    }
   }
 }
