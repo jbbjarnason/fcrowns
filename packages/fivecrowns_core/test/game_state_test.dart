@@ -605,5 +605,407 @@ void main() {
         }
       });
     });
+
+    group('laying off cards', () {
+      test('can lay off to own meld during mustDiscard phase', () {
+        final game = GameState.create(
+          gameId: 'test-game',
+          playerIds: ['p1', 'p2'],
+          random: Random(42),
+        );
+        game.startGame();
+        game.drawFromStock();
+
+        // Set up hand with cards for meld + extension
+        final player = game.players[0];
+        player.setHand([
+          Card(Suit.hearts, Rank.four),
+          Card(Suit.hearts, Rank.five),
+          Card(Suit.hearts, Rank.six),
+          Card(Suit.hearts, Rank.seven), // card to lay off
+          Card(Suit.spades, Rank.king),  // card to discard
+        ]);
+
+        // Lay initial meld
+        game.layMelds([
+          [
+            Card(Suit.hearts, Rank.four),
+            Card(Suit.hearts, Rank.five),
+            Card(Suit.hearts, Rank.six),
+          ],
+        ]);
+
+        // Lay off the 7 to extend the run
+        game.layOff(0, 0, [Card(Suit.hearts, Rank.seven)]);
+
+        expect(player.hand.length, 1); // only king left
+        expect(player.melds[0].cards.length, 4); // run is now 4-5-6-7
+      });
+
+      test('can lay off to another player\'s meld', () {
+        final game = GameState.create(
+          gameId: 'test-game',
+          playerIds: ['p1', 'p2'],
+          random: Random(42),
+        );
+        game.startGame();
+
+        // Player 0 lays a meld
+        game.drawFromStock();
+        final player0 = game.players[0];
+        player0.setHand([
+          Card(Suit.clubs, Rank.seven),
+          Card(Suit.clubs, Rank.eight),
+          Card(Suit.clubs, Rank.nine),
+          Card(Suit.spades, Rank.king),
+        ]);
+        game.layMelds([
+          [
+            Card(Suit.clubs, Rank.seven),
+            Card(Suit.clubs, Rank.eight),
+            Card(Suit.clubs, Rank.nine),
+          ],
+        ]);
+        game.discard(Card(Suit.spades, Rank.king));
+
+        // Player 1's turn
+        game.drawFromStock();
+        final player1 = game.players[1];
+        player1.setHand([
+          Card(Suit.clubs, Rank.ten),  // can extend player 0's run
+          Card(Suit.diamonds, Rank.four),
+          Card(Suit.diamonds, Rank.five),
+          Card(Suit.spades, Rank.queen),
+        ]);
+
+        // Player 1 lays off to player 0's meld
+        game.layOff(0, 0, [Card(Suit.clubs, Rank.ten)]);
+
+        expect(player1.hand.length, 3);
+        expect(player0.melds[0].cards.length, 4); // 7-8-9-10
+      });
+
+      test('can lay off multiple cards at once', () {
+        final game = GameState.create(
+          gameId: 'test-game',
+          playerIds: ['p1', 'p2'],
+          random: Random(42),
+        );
+        game.startGame();
+        game.drawFromStock();
+
+        final player = game.players[0];
+        player.setHand([
+          Card(Suit.spades, Rank.five),
+          Card(Suit.spades, Rank.six),
+          Card(Suit.spades, Rank.seven),
+          Card(Suit.spades, Rank.eight),
+          Card(Suit.spades, Rank.nine),
+          Card(Suit.diamonds, Rank.king),
+        ]);
+
+        // Lay initial meld
+        game.layMelds([
+          [
+            Card(Suit.spades, Rank.five),
+            Card(Suit.spades, Rank.six),
+            Card(Suit.spades, Rank.seven),
+          ],
+        ]);
+
+        // Lay off 8 and 9 together
+        game.layOff(0, 0, [
+          Card(Suit.spades, Rank.eight),
+          Card(Suit.spades, Rank.nine),
+        ]);
+
+        expect(player.hand.length, 1);
+        expect(player.melds[0].cards.length, 5);
+      });
+
+      test('cannot lay off during mustDraw phase', () {
+        final game = GameState.create(
+          gameId: 'test-game',
+          playerIds: ['p1', 'p2'],
+          random: Random(42),
+        );
+        game.startGame();
+
+        // Player 0 lays a meld first turn
+        game.drawFromStock();
+        final player0 = game.players[0];
+        player0.setHand([
+          Card(Suit.hearts, Rank.four),
+          Card(Suit.hearts, Rank.five),
+          Card(Suit.hearts, Rank.six),
+          Card(Suit.spades, Rank.king),
+        ]);
+        game.layMelds([
+          [
+            Card(Suit.hearts, Rank.four),
+            Card(Suit.hearts, Rank.five),
+            Card(Suit.hearts, Rank.six),
+          ],
+        ]);
+        game.discard(Card(Suit.spades, Rank.king));
+
+        // Player 1's turn - hasn't drawn yet
+        expect(game.turnPhase, TurnPhase.mustDraw);
+        final player1 = game.players[1];
+        player1.setHand([
+          Card(Suit.hearts, Rank.seven),
+          Card(Suit.diamonds, Rank.four),
+          Card(Suit.diamonds, Rank.five),
+        ]);
+
+        expect(
+          () => game.layOff(0, 0, [Card(Suit.hearts, Rank.seven)]),
+          throwsStateError,
+        );
+      });
+
+      test('cannot lay off during final turn phase', () {
+        final game = GameState.create(
+          gameId: 'test-game',
+          playerIds: ['p1', 'p2'],
+          random: Random(42),
+        );
+        game.startGame();
+
+        // Player 0 lays a meld and goes out
+        game.drawFromStock();
+        final player0 = game.players[0];
+        player0.setHand([
+          Card(Suit.hearts, Rank.four),
+          Card(Suit.hearts, Rank.five),
+          Card(Suit.hearts, Rank.six),
+          Card(Suit.spades, Rank.king),
+        ]);
+
+        game.goOut(
+          [
+            [
+              Card(Suit.hearts, Rank.four),
+              Card(Suit.hearts, Rank.five),
+              Card(Suit.hearts, Rank.six),
+            ],
+          ],
+          Card(Suit.spades, Rank.king),
+        );
+
+        expect(game.isFinalTurnPhase, true);
+
+        // Player 1's final turn
+        game.drawFromStock();
+        final player1 = game.players[1];
+        player1.setHand([
+          Card(Suit.hearts, Rank.seven),
+          Card(Suit.diamonds, Rank.four),
+          Card(Suit.diamonds, Rank.five),
+          Card(Suit.spades, Rank.queen),
+        ]);
+
+        // Cannot lay off during final turn phase
+        expect(
+          () => game.layOff(0, 0, [Card(Suit.hearts, Rank.seven)]),
+          throwsStateError,
+        );
+      });
+
+      test('cannot lay off with cards not in hand', () {
+        final game = GameState.create(
+          gameId: 'test-game',
+          playerIds: ['p1', 'p2'],
+          random: Random(42),
+        );
+        game.startGame();
+        game.drawFromStock();
+
+        final player = game.players[0];
+        player.setHand([
+          Card(Suit.hearts, Rank.four),
+          Card(Suit.hearts, Rank.five),
+          Card(Suit.hearts, Rank.six),
+          Card(Suit.spades, Rank.king),
+        ]);
+
+        game.layMelds([
+          [
+            Card(Suit.hearts, Rank.four),
+            Card(Suit.hearts, Rank.five),
+            Card(Suit.hearts, Rank.six),
+          ],
+        ]);
+
+        // Try to lay off a card that's not in hand
+        expect(
+          () => game.layOff(0, 0, [Card(Suit.hearts, Rank.seven)]),
+          throwsStateError,
+        );
+      });
+
+      test('cannot lay off with invalid extension', () {
+        final game = GameState.create(
+          gameId: 'test-game',
+          playerIds: ['p1', 'p2'],
+          random: Random(42),
+        );
+        game.startGame();
+        game.drawFromStock();
+
+        final player = game.players[0];
+        player.setHand([
+          Card(Suit.hearts, Rank.four),
+          Card(Suit.hearts, Rank.five),
+          Card(Suit.hearts, Rank.six),
+          Card(Suit.spades, Rank.nine), // wrong suit for run
+          Card(Suit.diamonds, Rank.king),
+        ]);
+
+        game.layMelds([
+          [
+            Card(Suit.hearts, Rank.four),
+            Card(Suit.hearts, Rank.five),
+            Card(Suit.hearts, Rank.six),
+          ],
+        ]);
+
+        // Try to lay off a card that doesn't extend the run
+        expect(
+          () => game.layOff(0, 0, [Card(Suit.spades, Rank.nine)]),
+          throwsStateError,
+        );
+      });
+
+      test('cannot lay off to invalid player index', () {
+        final game = GameState.create(
+          gameId: 'test-game',
+          playerIds: ['p1', 'p2'],
+          random: Random(42),
+        );
+        game.startGame();
+        game.drawFromStock();
+
+        final player = game.players[0];
+        player.setHand([
+          Card(Suit.hearts, Rank.four),
+          Card(Suit.hearts, Rank.five),
+          Card(Suit.hearts, Rank.six),
+          Card(Suit.hearts, Rank.seven),
+          Card(Suit.diamonds, Rank.king),
+        ]);
+
+        game.layMelds([
+          [
+            Card(Suit.hearts, Rank.four),
+            Card(Suit.hearts, Rank.five),
+            Card(Suit.hearts, Rank.six),
+          ],
+        ]);
+
+        expect(
+          () => game.layOff(5, 0, [Card(Suit.hearts, Rank.seven)]),
+          throwsStateError,
+        );
+      });
+
+      test('cannot lay off to invalid meld index', () {
+        final game = GameState.create(
+          gameId: 'test-game',
+          playerIds: ['p1', 'p2'],
+          random: Random(42),
+        );
+        game.startGame();
+        game.drawFromStock();
+
+        final player = game.players[0];
+        player.setHand([
+          Card(Suit.hearts, Rank.four),
+          Card(Suit.hearts, Rank.five),
+          Card(Suit.hearts, Rank.six),
+          Card(Suit.hearts, Rank.seven),
+          Card(Suit.diamonds, Rank.king),
+        ]);
+
+        game.layMelds([
+          [
+            Card(Suit.hearts, Rank.four),
+            Card(Suit.hearts, Rank.five),
+            Card(Suit.hearts, Rank.six),
+          ],
+        ]);
+
+        expect(
+          () => game.layOff(0, 3, [Card(Suit.hearts, Rank.seven)]),
+          throwsStateError,
+        );
+      });
+
+      test('cannot lay off empty cards list', () {
+        final game = GameState.create(
+          gameId: 'test-game',
+          playerIds: ['p1', 'p2'],
+          random: Random(42),
+        );
+        game.startGame();
+        game.drawFromStock();
+
+        final player = game.players[0];
+        player.setHand([
+          Card(Suit.hearts, Rank.four),
+          Card(Suit.hearts, Rank.five),
+          Card(Suit.hearts, Rank.six),
+          Card(Suit.diamonds, Rank.king),
+        ]);
+
+        game.layMelds([
+          [
+            Card(Suit.hearts, Rank.four),
+            Card(Suit.hearts, Rank.five),
+            Card(Suit.hearts, Rank.six),
+          ],
+        ]);
+
+        expect(
+          () => game.layOff(0, 0, []),
+          throwsStateError,
+        );
+      });
+
+      test('lay off to book with matching rank', () {
+        final game = GameState.create(
+          gameId: 'test-game',
+          playerIds: ['p1', 'p2'],
+          random: Random(42),
+        );
+        game.startGame();
+        game.drawFromStock();
+
+        final player = game.players[0];
+        player.setHand([
+          Card(Suit.hearts, Rank.seven),
+          Card(Suit.spades, Rank.seven),
+          Card(Suit.clubs, Rank.seven),
+          Card(Suit.diamonds, Rank.seven), // card to lay off
+          Card(Suit.spades, Rank.king),
+        ]);
+
+        // Lay initial book
+        game.layMelds([
+          [
+            Card(Suit.hearts, Rank.seven),
+            Card(Suit.spades, Rank.seven),
+            Card(Suit.clubs, Rank.seven),
+          ],
+        ]);
+
+        // Lay off the diamonds 7
+        game.layOff(0, 0, [Card(Suit.diamonds, Rank.seven)]);
+
+        expect(player.hand.length, 1);
+        expect(player.melds[0].cards.length, 4);
+        expect(player.melds[0].type, MeldType.book);
+      });
+    });
   });
 }

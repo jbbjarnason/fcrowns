@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:beamer/beamer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fivecrowns_core/fivecrowns_core.dart' show MeldType;
 import '../main.dart' show themeProvider;
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
@@ -23,6 +24,10 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   final Set<String> _selectedCards = {};
   final List<List<String>> _melds = [];
   bool _showTutorial = false;
+
+  // Lay off target selection
+  int? _layOffTargetPlayerIndex;
+  int? _layOffTargetMeldIndex;
 
   // Store provider references for safe dispose
   late final GameProvider _game;
@@ -136,7 +141,39 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     setState(() {
       _melds.clear();
       _selectedCards.clear();
+      _layOffTargetPlayerIndex = null;
+      _layOffTargetMeldIndex = null;
     });
+  }
+
+  void _selectMeldForLayOff(int playerIndex, int meldIndex) {
+    setState(() {
+      if (_layOffTargetPlayerIndex == playerIndex && _layOffTargetMeldIndex == meldIndex) {
+        // Deselect if already selected
+        _layOffTargetPlayerIndex = null;
+        _layOffTargetMeldIndex = null;
+      } else {
+        _layOffTargetPlayerIndex = playerIndex;
+        _layOffTargetMeldIndex = meldIndex;
+      }
+    });
+  }
+
+  void _layOffCards() {
+    if (_layOffTargetPlayerIndex != null &&
+        _layOffTargetMeldIndex != null &&
+        _selectedCards.isNotEmpty) {
+      ref.read(gameProvider).layOff(
+            _layOffTargetPlayerIndex!,
+            _layOffTargetMeldIndex!,
+            _selectedCards.toList(),
+          );
+      setState(() {
+        _selectedCards.clear();
+        _layOffTargetPlayerIndex = null;
+        _layOffTargetMeldIndex = null;
+      });
+    }
   }
 
   void _layMelds() {
@@ -366,10 +403,10 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                       _buildDrawPiles(game),
                     ],
                   ),
+                  // Table melds (all players' melds - for lay off)
+                  _buildTableMelds(game),
                   // My melds staging area
                   if (_melds.isNotEmpty) _buildMeldsStaging(),
-                  // My laid melds
-                  if (game.myMelds.isNotEmpty) _buildMyMelds(game),
                   // My hand
                   Expanded(child: _buildMyHand(game)),
                   // Action buttons
@@ -760,33 +797,153 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     );
   }
 
-  Widget _buildMyMelds(game) {
+  Widget _buildTableMelds(game) {
+    final myId = ref.read(authProvider).userId;
+    final players = game.players as List<Map<String, dynamic>>;
+    final canLayOff = game.isMyTurn &&
+        game.turnPhase == 'mustDiscard' &&
+        !game.isFinalTurnPhase &&
+        _selectedCards.isNotEmpty;
+
+    // Collect all melds from all players
+    final allMelds = <({int playerIndex, int meldIndex, List<String> cards, String playerName, bool isMe})>[];
+
+    for (var i = 0; i < players.length; i++) {
+      final player = players[i];
+      final melds = player['melds'] as List<dynamic>?;
+      if (melds == null || melds.isEmpty) continue;
+
+      final isMe = player['id'] == myId;
+      final displayName = player['displayName'] as String?;
+      final username = player['username'] as String?;
+      final name = isMe ? 'You' : (displayName ?? username ?? 'P${(player['seat'] as int) + 1}');
+
+      for (var j = 0; j < melds.length; j++) {
+        final meldCards = (melds[j] as List).cast<String>();
+        allMelds.add((
+          playerIndex: i,
+          meldIndex: j,
+          cards: meldCards,
+          playerName: name,
+          isMe: isMe,
+        ));
+      }
+    }
+
+    if (allMelds.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return Container(
       padding: const EdgeInsets.all(8),
-      color: Colors.green.withValues(alpha: 0.1),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(
+          top: BorderSide(color: Theme.of(context).dividerColor),
+          bottom: BorderSide(color: Theme.of(context).dividerColor),
+        ),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('My Melds:', style: TextStyle(fontWeight: FontWeight.bold)),
+          Row(
+            children: [
+              const Icon(Icons.table_restaurant_rounded, size: 16),
+              const SizedBox(width: 4),
+              const Text('Table Melds', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              if (canLayOff) ...[
+                const Spacer(),
+                Text(
+                  'Tap a meld to lay off',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontStyle: FontStyle.italic,
+                    color: AppTheme.primary,
+                  ),
+                ),
+              ],
+            ],
+          ),
           const SizedBox(height: 4),
-          Wrap(
-            children: game.myMelds.map<Widget>((meld) {
-              return Container(
-                margin: const EdgeInsets.all(4),
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.green),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: (meld as List<String>).map((c) => SizedBox(
-                    width: 30,
-                    child: CardWidget(cardCode: c, isSelected: false, small: true),
-                  )).toList(),
-                ),
-              );
-            }).toList(),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: allMelds.map((meld) {
+                final isSelected = _layOffTargetPlayerIndex == meld.playerIndex &&
+                    _layOffTargetMeldIndex == meld.meldIndex;
+
+                // Check if this meld can be extended with selected cards
+                bool canExtend = false;
+                if (canLayOff && meld.cards.length >= 3) {
+                  // Determine meld type from cards
+                  final game = ref.read(gameProvider);
+                  try {
+                    // Try as run first, then book
+                    canExtend = game.canExtendMeld(
+                          meld.cards,
+                          _selectedCards.toList(),
+                          MeldType.run,
+                        ) ||
+                        game.canExtendMeld(
+                          meld.cards,
+                          _selectedCards.toList(),
+                          MeldType.book,
+                        );
+                  } catch (_) {
+                    canExtend = false;
+                  }
+                }
+
+                return GestureDetector(
+                  onTap: canLayOff && canExtend
+                      ? () => _selectMeldForLayOff(meld.playerIndex, meld.meldIndex)
+                      : null,
+                  child: Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? AppTheme.primary.withValues(alpha: 0.2)
+                          : (canExtend && canLayOff
+                              ? Colors.orange.withValues(alpha: 0.1)
+                              : null),
+                      border: Border.all(
+                        color: isSelected
+                            ? AppTheme.primary
+                            : (canExtend && canLayOff
+                                ? Colors.orange
+                                : (meld.isMe ? Colors.green : Theme.of(context).dividerColor)),
+                        width: isSelected ? 2 : 1,
+                      ),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 2, left: 2),
+                          child: Text(
+                            meld.playerName,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: meld.isMe ? Colors.green : Theme.of(context).textTheme.bodySmall?.color,
+                            ),
+                          ),
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: meld.cards.map((c) => SizedBox(
+                                width: 28,
+                                child: CardWidget(cardCode: c, isSelected: false, small: true),
+                              )).toList(),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
           ),
         ],
       ),
@@ -885,6 +1042,18 @@ class _GameScreenState extends ConsumerState<GameScreen> {
             ElevatedButton(
               onPressed: _layMelds,
               child: const Text('Lay Melds'),
+            ),
+          // Lay Off button - when cards selected and meld target selected
+          if (_selectedCards.isNotEmpty &&
+              _layOffTargetPlayerIndex != null &&
+              _layOffTargetMeldIndex != null &&
+              !game.isFinalTurnPhase)
+            ElevatedButton(
+              onPressed: _layOffCards,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+              ),
+              child: const Text('Lay Off'),
             ),
           if (_selectedCards.length == 1 && !game.isFinalTurnPhase)
             ElevatedButton(

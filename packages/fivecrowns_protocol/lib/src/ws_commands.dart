@@ -17,6 +17,7 @@ abstract class WsCommand {
       'cmd.discard' => CmdDiscard.fromJson(json),
       'cmd.layDown' => CmdLayDown.fromJson(json),
       'cmd.goOut' => CmdGoOut.fromJson(json),
+      'cmd.layOff' => CmdLayOff.fromJson(json),
       'cmd.settings.videoAutoStart' => CmdVideoAutoStart.fromJson(json),
       _ => throw ArgumentError('Unknown command type: $type'),
     };
@@ -238,6 +239,43 @@ class CmdGoOut implements WsCommand {
         'gameId': gameId,
         'melds': melds,
         'discard': discard,
+        'clientSeq': clientSeq,
+      };
+}
+
+class CmdLayOff implements WsCommand {
+  @override
+  String get type => 'cmd.layOff';
+  final String gameId;
+  final int targetPlayerIndex;
+  final int meldIndex;
+  final List<String> cards;
+  @override
+  final int clientSeq;
+
+  CmdLayOff({
+    required this.gameId,
+    required this.targetPlayerIndex,
+    required this.meldIndex,
+    required this.cards,
+    required this.clientSeq,
+  });
+
+  factory CmdLayOff.fromJson(Map<String, dynamic> json) => CmdLayOff(
+        gameId: json['gameId'] as String,
+        targetPlayerIndex: json['targetPlayerIndex'] as int,
+        meldIndex: json['meldIndex'] as int,
+        cards: (json['cards'] as List).cast<String>(),
+        clientSeq: json['clientSeq'] as int,
+      );
+
+  @override
+  Map<String, dynamic> toJson() => {
+        'type': type,
+        'gameId': gameId,
+        'targetPlayerIndex': targetPlayerIndex,
+        'meldIndex': meldIndex,
+        'cards': cards,
         'clientSeq': clientSeq,
       };
 }

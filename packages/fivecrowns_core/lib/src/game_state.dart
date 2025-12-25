@@ -219,6 +219,56 @@ class GameState {
     }
   }
 
+  /// Lays off cards to an existing meld (own or another player's).
+  /// Not allowed during final turn phase.
+  void layOff(int targetPlayerIndex, int meldIndex, List<Card> cards) {
+    _validateTurnPhase(TurnPhase.mustDiscard);
+
+    if (isFinalTurnPhase) {
+      throw StateError('Cannot lay off cards during final turn phase');
+    }
+
+    if (cards.isEmpty) {
+      throw StateError('Must lay off at least one card');
+    }
+
+    // Validate target player exists
+    if (targetPlayerIndex < 0 || targetPlayerIndex >= players.length) {
+      throw StateError('Invalid target player index');
+    }
+
+    final targetPlayer = players[targetPlayerIndex];
+
+    // Validate meld exists
+    if (meldIndex < 0 || meldIndex >= targetPlayer.melds.length) {
+      throw StateError('Invalid meld index');
+    }
+
+    final existingMeld = targetPlayer.melds[meldIndex];
+
+    // Validate cards exist in current player's hand
+    final handCopy = List<Card>.from(currentPlayer.hand);
+    for (final card in cards) {
+      final idx = handCopy.indexWhere((c) => c == card);
+      if (idx == -1) {
+        throw StateError('Card $card not in hand');
+      }
+      handCopy.removeAt(idx);
+    }
+
+    // Validate extension is valid
+    if (!MeldValidator.canExtendMeld(existingMeld, cards, roundNumber)) {
+      throw StateError('Cannot extend meld with provided cards');
+    }
+
+    // Remove cards from current player's hand
+    currentPlayer.removeCardsFromHand(cards);
+
+    // Extend the target meld
+    final extendedMeld = MeldValidator.extendMeld(existingMeld, cards, roundNumber);
+    targetPlayer.replaceMeld(meldIndex, extendedMeld);
+  }
+
   /// Discards a card, ending the turn.
   void discard(Card card) {
     _validateTurnPhase(TurnPhase.mustDiscard);

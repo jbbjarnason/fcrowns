@@ -196,6 +196,16 @@ class WebSocketService {
     _send(CmdGoOut(gameId: gameId, melds: melds, discard: discard, clientSeq: _nextSeq()).toJson());
   }
 
+  void layOff(String gameId, int targetPlayerIndex, int meldIndex, List<String> cards) {
+    _send(CmdLayOff(
+      gameId: gameId,
+      targetPlayerIndex: targetPlayerIndex,
+      meldIndex: meldIndex,
+      cards: cards,
+      clientSeq: _nextSeq(),
+    ).toJson());
+  }
+
   Future<void> disconnect() async {
     _intentionalDisconnect = true;
     _reconnectTimer?.cancel();

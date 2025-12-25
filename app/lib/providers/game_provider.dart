@@ -292,6 +292,28 @@ class GameProvider extends ChangeNotifier {
     }
   }
 
+  /// Lay off cards to an existing meld (own or another player's).
+  /// Not allowed during final turn phase.
+  void layOff(int targetPlayerIndex, int meldIndex, List<String> cards) {
+    if (_gameId != null && _isMyTurn && _turnPhase == 'mustDiscard' && !_isFinalTurnPhase) {
+      ws.layOff(_gameId!, targetPlayerIndex, meldIndex, cards);
+    }
+  }
+
+  /// Check if the given cards can extend an existing meld
+  bool canExtendMeld(List<String> existingMeldCards, List<String> newCards, MeldType meldType) {
+    if (newCards.isEmpty) return false;
+
+    final existingCards = existingMeldCards.map((c) => Card.decode(c)).toList();
+    final cardsToAdd = newCards.map((c) => Card.decode(c)).toList();
+
+    final existingMeld = meldType == MeldType.run
+        ? Meld.run(existingCards)
+        : Meld.book(existingCards);
+
+    return MeldValidator.canExtendMeld(existingMeld, cardsToAdd, _roundNumber);
+  }
+
   /// Check if the given card codes form a valid meld
   bool isValidMeld(List<String> cardCodes) {
     if (cardCodes.length < 3) return false;

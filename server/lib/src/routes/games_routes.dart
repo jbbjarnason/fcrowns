@@ -256,14 +256,16 @@ class GamesRoutes {
       }
 
       // Verify friendship exists (must be accepted in either direction)
-      final friendship = await (db.select(db.friendships)
+      // Note: When a friend request is accepted, TWO rows are created with status='accepted',
+      // so we use .get() instead of .getSingleOrNull() to handle this correctly.
+      final friendships = await (db.select(db.friendships)
         ..where((f) =>
             ((f.userId.equals(userId) & f.friendId.equals(req.userId)) |
              (f.userId.equals(req.userId) & f.friendId.equals(userId))) &
             f.status.equals('accepted')))
-          .getSingleOrNull();
+          .get();
 
-      if (friendship == null) {
+      if (friendships.isEmpty) {
         return _error(403, 'not_friends', 'You can only invite friends to games');
       }
 

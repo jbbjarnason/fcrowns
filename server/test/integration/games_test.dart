@@ -137,6 +137,15 @@ void main() {
     late String gameId;
 
     setUp(() async {
+      // Create friendships between user1 and user2, user1 and user3
+      // User1 sends friend request to user2
+      await harness.request('POST', '/friends/request', body: {'userId': user2Id}, authToken: user1Token);
+      await harness.request('POST', '/friends/accept', body: {'userId': user1Id}, authToken: user2Token);
+
+      // User1 sends friend request to user3
+      await harness.request('POST', '/friends/request', body: {'userId': user3Id}, authToken: user1Token);
+      await harness.request('POST', '/friends/accept', body: {'userId': user1Id}, authToken: user3Token);
+
       final response = await harness.request(
         'POST',
         '/games/',
@@ -219,10 +228,14 @@ void main() {
         authToken: user1Token,
       );
 
-      // Create user4 and try to invite
+      // Create user4 and set up friendship
       final (token4, _) = await createVerifiedUser(harness, email: 'player4@test.com', username: 'player4');
       final me4 = await harness.request('GET', '/users/me', authToken: token4);
       final user4Id = (await harness.parseJson(me4))['id'] as String;
+
+      // Create friendship with user4
+      await harness.request('POST', '/friends/request', body: {'userId': user4Id}, authToken: user1Token);
+      await harness.request('POST', '/friends/accept', body: {'userId': user1Id}, authToken: token4);
 
       final response = await harness.request(
         'POST',
@@ -286,10 +299,57 @@ void main() {
     });
   });
 
+  group('Game Invite with Friendship', () {
+    test('can invite friend after mutual accept', () async {
+      // First, user1 sends friend request to user2
+      await harness.request(
+        'POST',
+        '/friends/request',
+        body: {'userId': user2Id},
+        authToken: user1Token,
+      );
+
+      // User2 accepts the friend request (this creates TWO rows in friendships table)
+      final acceptResponse = await harness.request(
+        'POST',
+        '/friends/accept',
+        body: {'userId': user1Id},
+        authToken: user2Token,
+      );
+      expect(acceptResponse.statusCode, 200);
+
+      // User1 creates a game
+      final gameResponse = await harness.request(
+        'POST',
+        '/games/',
+        body: {'maxPlayers': 4},
+        authToken: user1Token,
+      );
+      expect(gameResponse.statusCode, 201);
+      final gameId = (await harness.parseJson(gameResponse))['gameId'] as String;
+
+      // User1 invites user2 - this should NOT fail with "Too many elements"
+      final inviteResponse = await harness.request(
+        'POST',
+        '/games/$gameId/invite',
+        body: {'userId': user2Id},
+        authToken: user1Token,
+      );
+
+      expect(inviteResponse.statusCode, 200);
+      final inviteJson = await harness.parseJson(inviteResponse);
+      expect(inviteJson['status'], 'invited');
+    });
+  });
+
   group('Game Nudge', () {
     late String gameId;
 
     setUp(() async {
+      // Create friendship between user1 and user2
+      await harness.request('POST', '/friends/request', body: {'userId': user2Id}, authToken: user1Token);
+      await harness.request('POST', '/friends/accept', body: {'userId': user1Id}, authToken: user2Token);
+
       // User1 creates a game
       final response = await harness.request(
         'POST',

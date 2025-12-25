@@ -63,6 +63,8 @@ class WsHub {
           await _handleLayDown(conn, cmd);
         case CmdGoOut cmd:
           await _handleGoOut(conn, cmd);
+        case CmdLayOff cmd:
+          await _handleLayOff(conn, cmd);
         default:
           _sendError(conn, command.clientSeq, 'unknown_command', 'Unknown command type');
       }
@@ -296,6 +298,35 @@ class WsHub {
         'discard': cmd.discard,
       });
       await _checkGameEnd(cmd.gameId, gameState);
+      await _broadcastState(cmd.gameId, gameState);
+    } catch (e) {
+      _sendError(conn, cmd.clientSeq, 'invalid_move', e.toString());
+    }
+  }
+
+  Future<void> _handleLayOff(WsConnection conn, CmdLayOff cmd) async {
+    if (!_requireAuth(conn, cmd.clientSeq)) return;
+
+    final gameState = await _loadOrGetGameState(cmd.gameId);
+    if (gameState == null) {
+      _sendError(conn, cmd.clientSeq, 'game_not_found', 'Game not found');
+      return;
+    }
+
+    if (gameState.currentPlayer.id != conn.userId) {
+      _sendError(conn, cmd.clientSeq, 'not_your_turn', 'Not your turn');
+      return;
+    }
+
+    try {
+      final cards = cmd.cards.map((c) => core.Card.decode(c)).toList();
+      gameState.layOff(cmd.targetPlayerIndex, cmd.meldIndex, cards);
+
+      await _persistEvent(cmd.gameId, 'cardsLaidOff', {
+        'targetPlayerIndex': cmd.targetPlayerIndex,
+        'meldIndex': cmd.meldIndex,
+        'cards': cmd.cards,
+      });
       await _broadcastState(cmd.gameId, gameState);
     } catch (e) {
       _sendError(conn, cmd.clientSeq, 'invalid_move', e.toString());

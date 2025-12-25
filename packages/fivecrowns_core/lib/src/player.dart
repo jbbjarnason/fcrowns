@@ -65,6 +65,15 @@ class Player {
   /// Lays down a meld.
   void layMeld(Meld meld) => _melds.add(meld);
 
+  /// Replaces a meld at the given index with a new meld.
+  /// Used when extending a meld with additional cards.
+  void replaceMeld(int index, Meld newMeld) {
+    if (index < 0 || index >= _melds.length) {
+      throw RangeError('Invalid meld index: $index');
+    }
+    _melds[index] = newMeld;
+  }
+
   /// Clears the player's hand and melds for a new round.
   void clearForRound() {
     _hand.clear();
