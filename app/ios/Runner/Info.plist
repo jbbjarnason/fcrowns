@@ -52,5 +52,8 @@
 		<string>Microphone access is needed for voice chat during games</string>
 		<key>UIStatusBarHidden</key>
 		<false/>
+		<!-- Export compliance - app only uses standard HTTPS/TLS (exempt) -->
+		<key>ITSAppUsesNonExemptEncryption</key>
+		<false/>
 	</dict>
 </plist>

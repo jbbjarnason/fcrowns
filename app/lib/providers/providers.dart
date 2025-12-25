@@ -20,10 +20,10 @@ export 'notifications_provider.dart' show NotificationsProvider;
 //   flutter run --dart-define=API_URL=https://api.example.com
 //   flutter build --dart-define=API_URL=https://api.example.com
 //
-// For production builds, API_URL and WS_URL MUST be provided.
-// The defaults below are for local development only.
-const String apiBaseUrl = String.fromEnvironment('API_URL');
-const String wsBaseUrl = String.fromEnvironment('WS_URL');
+// Defaults to production server. Override for local development:
+//   --dart-define=API_URL=http://localhost:8080 --dart-define=WS_URL=ws://localhost:8080/ws
+const String apiBaseUrl = String.fromEnvironment('API_URL', defaultValue: 'https://fcrowns.centroid.is');
+const String wsBaseUrl = String.fromEnvironment('WS_URL', defaultValue: 'wss://fcrowns.centroid.is/ws');
 
 // Validate URLs at startup - will fail fast if not configured
 void _validateConfig() {

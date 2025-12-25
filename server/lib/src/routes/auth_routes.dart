@@ -84,12 +84,17 @@ class AuthRoutes {
 
       // Skip email if verification is disabled (for local dev)
       if (!skipEmailVerification) {
-        final token = await authService.createVerificationToken(userId);
-        await emailService.sendVerificationEmail(
-          toEmail: req.email,
-          username: req.username,
-          token: token,
-        );
+        try {
+          final token = await authService.createVerificationToken(userId);
+          await emailService.sendVerificationEmail(
+            toEmail: req.email,
+            username: req.username,
+            token: token,
+          );
+        } catch (e) {
+          // Log but don't fail signup - user can request resend later
+          print('WARNING: Failed to send verification email: $e');
+        }
       }
 
       final message = skipEmailVerification ? 'account_created' : 'verification_sent';
