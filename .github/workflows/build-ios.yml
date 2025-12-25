@@ -112,6 +112,24 @@ jobs:
           path: app/build/ios/ipa/*.ipa
           retention-days: 30
 
+      - name: Upload to App Store Connect (TestFlight)
+        if: github.event_name != 'pull_request'
+        env:
+          APP_STORE_CONNECT_API_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          # Create API key file
+          mkdir -p ~/.private_keys
+          echo -n "$APP_STORE_CONNECT_API_KEY_BASE64" | base64 --decode > ~/.private_keys/AuthKey_$APP_STORE_CONNECT_KEY_ID.p8
+
+          # Upload to App Store Connect
+          xcrun altool --upload-app \
+            --type ios \
+            --file app/build/ios/ipa/*.ipa \
+            --apiKey "$APP_STORE_CONNECT_KEY_ID" \
+            --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"
+
       - name: Upload iOS build (unsigned)
         if: github.event_name == 'pull_request'
         uses: actions/upload-artifact@v4
