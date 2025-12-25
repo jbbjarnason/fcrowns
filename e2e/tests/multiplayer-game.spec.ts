@@ -88,17 +88,17 @@ async function loginUser(page: Page, player: Player): Promise<void> {
 
   // Flutter CanvasKit renders to canvas - use coordinate-based clicking
   // Based on the login form layout:
-  // - Email field is roughly at 45% from top
-  // - Password field is roughly at 55% from top
+  // - Email field is roughly at 47% from top
+  // - Password field is roughly at 56% from top
   // - Login button is roughly at 65% from top
 
   // Click email field area and type
-  await page.mouse.click(centerX, viewport.height * 0.42);
+  await page.mouse.click(centerX, viewport.height * 0.47);
   await page.waitForTimeout(500);
   await page.keyboard.type(player.email, { delay: 20 });
 
   // Click password field area and type
-  await page.mouse.click(centerX, viewport.height * 0.52);
+  await page.mouse.click(centerX, viewport.height * 0.56);
   await page.waitForTimeout(500);
   await page.keyboard.type(player.password, { delay: 20 });
 
@@ -223,6 +223,47 @@ async function invitePlayerViaApi(inviter: Player, gameId: string, inviteeUserId
   }
 
   console.log(`Invited user ${inviteeUserId} to game ${gameId}`);
+}
+
+async function createFriendship(player1: Player, player2: Player): Promise<void> {
+  // Player1 sends friend request
+  const requestRes = await fetch(`${API_URL}/friends/request`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${player1.accessToken}`,
+    },
+    body: JSON.stringify({ userId: player2.userId }),
+  });
+
+  // 201 = new request, 409 = already exists/already friends (both are ok)
+  if (requestRes.status !== 201 && requestRes.status !== 409) {
+    const text = await requestRes.text();
+    throw new Error(`Friend request failed: ${requestRes.status} ${text}`);
+  }
+
+  // If already friends (409), skip accept step
+  if (requestRes.status === 409) {
+    console.log(`${player1.username} and ${player2.username} friendship already exists`);
+    return;
+  }
+
+  // Player2 accepts
+  const acceptRes = await fetch(`${API_URL}/friends/accept`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${player2.accessToken}`,
+    },
+    body: JSON.stringify({ userId: player1.userId }),
+  });
+
+  if (acceptRes.status !== 200) {
+    const text = await acceptRes.text();
+    throw new Error(`Accept friend request failed: ${acceptRes.status} ${text}`);
+  }
+
+  console.log(`${player1.username} and ${player2.username} are now friends`);
 }
 
 async function joinGameLobby(page: Page, gameId: string, playerName: string): Promise<void> {
@@ -407,6 +448,12 @@ test.describe('Three Player Game', () => {
       console.log('Logging in players via API...');
       for (const player of players) {
         await loginViaApi(player);
+      }
+
+      // Create friendships between player 1 and other players
+      console.log('Creating friendships...');
+      for (let i = 1; i < players.length; i++) {
+        await createFriendship(players[0], players[i]);
       }
 
       // Player 1 creates game via API

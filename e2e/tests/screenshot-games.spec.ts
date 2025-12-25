@@ -11,10 +11,10 @@ test('screenshot games screen after login', async ({ page }) => {
   const centerX = viewport.width / 2;
 
   // Login
-  await page.mouse.click(centerX, viewport.height * 0.42);
+  await page.mouse.click(centerX, viewport.height * 0.47);
   await page.waitForTimeout(300);
   await page.keyboard.type('player1@test.local', { delay: 20 });
-  await page.mouse.click(centerX, viewport.height * 0.52);
+  await page.mouse.click(centerX, viewport.height * 0.56);
   await page.waitForTimeout(300);
   await page.keyboard.type('password123', { delay: 20 });
   await page.keyboard.press('Enter');

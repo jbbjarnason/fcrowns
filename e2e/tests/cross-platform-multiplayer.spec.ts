@@ -137,13 +137,13 @@ test.describe('Cross-Platform Multiplayer', () => {
     const centerX = viewport.width / 2;
 
     // Login as host using coordinate-based clicking (Flutter renders to canvas)
-    // Email field is roughly at 42% from top
-    await page.mouse.click(centerX, viewport.height * 0.42);
+    // Email field is roughly at 47% from top
+    await page.mouse.click(centerX, viewport.height * 0.47);
     await page.waitForTimeout(500);
     await page.keyboard.type(hostUser.email, { delay: 20 });
 
-    // Password field is roughly at 52% from top
-    await page.mouse.click(centerX, viewport.height * 0.52);
+    // Password field is roughly at 56% from top
+    await page.mouse.click(centerX, viewport.height * 0.56);
     await page.waitForTimeout(500);
     await page.keyboard.type(hostUser.password, { delay: 20 });
 

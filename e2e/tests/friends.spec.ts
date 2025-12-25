@@ -97,8 +97,8 @@ test.describe('Friend Request Flow', () => {
   });
 
   test('should send and accept friend request with correct names', async () => {
-    // User1 searches for User2 by username
-    const searchRes = await fetch(`${API_URL}/users/search?username=${user2.username.substring(0, 6)}`, {
+    // User1 searches for User2 by full username (avoid ambiguous partial match)
+    const searchRes = await fetch(`${API_URL}/users/search?username=${user2.username}`, {
       headers: { 'Authorization': `Bearer ${user1Auth.token}` },
     });
     expect(searchRes.status).toBe(200);

@@ -42,6 +42,11 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   bool _canNudge = false;
   Timer? _nudgeTimer;
 
+  // Hand reordering - tracks display order of card indices
+  // Maps display position -> original hand index
+  List<int> _handDisplayOrder = [];
+  int? _lastHandLength;
+
   @override
   void initState() {
     super.initState();
@@ -96,6 +101,50 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       if (elapsed.inSeconds >= 10) {
         setState(() => _canNudge = true);
       }
+    }
+  }
+
+  /// Update hand display order when hand changes
+  void _updateHandDisplayOrder(List<String> hand) {
+    if (hand.length != _lastHandLength) {
+      // Hand size changed - reset order to default
+      _handDisplayOrder = List.generate(hand.length, (i) => i);
+      _lastHandLength = hand.length;
+    }
+  }
+
+  /// Reorder cards in hand (visual only - doesn't affect server state)
+  void _reorderHand(int oldIndex, int newIndex) {
+    setState(() {
+      if (newIndex > oldIndex) {
+        newIndex -= 1;
+      }
+      final item = _handDisplayOrder.removeAt(oldIndex);
+      _handDisplayOrder.insert(newIndex, item);
+    });
+  }
+
+  /// Reconnect WebSocket and LiveKit after error dismissal
+  Future<void> _reconnectAfterError() async {
+    final game = ref.read(gameProvider);
+    game.clearError();
+
+    // Reconnect WebSocket
+    game.joinGame(widget.gameId);
+
+    // Reconnect LiveKit
+    final api = ref.read(apiServiceProvider);
+    final liveKit = ref.read(liveKitProvider);
+    await liveKit.disconnect();
+    liveKit.connect(
+      api: api,
+      gameId: widget.gameId,
+    );
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Reconnecting...')),
+      );
     }
   }
 
@@ -400,10 +449,18 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
+                        const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                        const SizedBox(height: 16),
                         Text('Error: ${game.error}', style: const TextStyle(color: Colors.red)),
-                        ElevatedButton(
-                          onPressed: () => game.clearError(),
-                          child: const Text('Dismiss'),
+                        const SizedBox(height: 24),
+                        ElevatedButton.icon(
+                          onPressed: _reconnectAfterError,
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Reconnect'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primary,
+                            foregroundColor: Colors.white,
+                          ),
                         ),
                       ],
                     ),
@@ -926,12 +983,15 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     final indicesInMelds = _meldIndices.expand((m) => m).toSet();
     // Build list of (index, card) for cards NOT in melds
     final hand = game.hand as List<String>;
-    final availableCards = <({int index, String card})>[];
-    for (var i = 0; i < hand.length; i++) {
-      if (!indicesInMelds.contains(i)) {
-        availableCards.add((index: i, card: hand[i]));
-      }
-    }
+
+    // Update display order if hand changed
+    _updateHandDisplayOrder(hand);
+
+    // Filter out cards in melds from display order
+    final availableDisplayOrder = _handDisplayOrder
+        .where((i) => !indicesInMelds.contains(i) && i < hand.length)
+        .toList();
+
     final myScore = game.scores[ref.read(authProvider).userId] ?? 0;
 
     return Container(
@@ -942,7 +1002,17 @@ class _GameScreenState extends ConsumerState<GameScreen> {
         children: [
           Row(
             children: [
-              Text('My Hand (${availableCards.length})', style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text('My Hand (${availableDisplayOrder.length})', style: const TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(width: 8),
+              // Reorder hint icon
+              Tooltip(
+                message: 'Long press and drag to reorder cards',
+                child: Icon(
+                  Icons.swap_horiz_rounded,
+                  size: 16,
+                  color: Theme.of(context).textTheme.bodySmall?.color,
+                ),
+              ),
               const Spacer(),
               // Score button - opens scoreboard on tap
               Material(
@@ -984,28 +1054,68 @@ class _GameScreenState extends ConsumerState<GameScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 4,
-            runSpacing: 4,
-            children: availableCards.map<Widget>((item) {
-              final isSelected = _selectedCardIndices.contains(item.index);
-              return GestureDetector(
-                onTap: () {
-                  if (game.isMyTurn && game.turnPhase == 'mustDiscard') {
-                    _toggleCardSelection(item.index);
-                  }
-                },
-                onDoubleTap: () {
-                  if (game.isMyTurn && game.turnPhase == 'mustDiscard' && !game.isFinalTurnPhase) {
-                    game.discard(item.card);
-                  }
-                },
-                child: CardWidget(
-                  cardCode: item.card,
-                  isSelected: isSelected,
-                ),
-              );
-            }).toList(),
+          // Reorderable hand using ReorderableListView in horizontal mode
+          SizedBox(
+            height: 100, // Fixed height for the reorderable area
+            child: ReorderableListView.builder(
+              scrollDirection: Axis.horizontal,
+              buildDefaultDragHandles: false,
+              itemCount: availableDisplayOrder.length,
+              onReorder: (oldIndex, newIndex) {
+                // Convert from available display indices to full hand indices
+                final oldHandIndex = _handDisplayOrder.indexOf(availableDisplayOrder[oldIndex]);
+                final newHandIndex = newIndex >= availableDisplayOrder.length
+                    ? _handDisplayOrder.length
+                    : _handDisplayOrder.indexOf(availableDisplayOrder[newIndex]);
+                _reorderHand(oldHandIndex, newHandIndex);
+              },
+              proxyDecorator: (child, index, animation) {
+                return AnimatedBuilder(
+                  animation: animation,
+                  builder: (context, child) {
+                    final scale = 1.0 + (animation.value * 0.1);
+                    return Transform.scale(
+                      scale: scale,
+                      child: Material(
+                        elevation: 8,
+                        color: Colors.transparent,
+                        child: child,
+                      ),
+                    );
+                  },
+                  child: child,
+                );
+              },
+              itemBuilder: (context, displayIndex) {
+                final handIndex = availableDisplayOrder[displayIndex];
+                final card = hand[handIndex];
+                final isSelected = _selectedCardIndices.contains(handIndex);
+
+                return ReorderableDragStartListener(
+                  key: ValueKey('card_$handIndex'),
+                  index: displayIndex,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    child: GestureDetector(
+                      onTap: () {
+                        if (game.isMyTurn && game.turnPhase == 'mustDiscard') {
+                          _toggleCardSelection(handIndex);
+                        }
+                      },
+                      onDoubleTap: () {
+                        if (game.isMyTurn && game.turnPhase == 'mustDiscard' && !game.isFinalTurnPhase) {
+                          game.discard(card);
+                        }
+                      },
+                      child: CardWidget(
+                        cardCode: card,
+                        isSelected: isSelected,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
           ),
         ],
       ),

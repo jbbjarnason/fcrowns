@@ -84,7 +84,7 @@ async function loginAndGetToken(player: Player): Promise<void> {
   }
 
   const data = await res.json();
-  player.accessToken = data.accessToken;
+  player.accessToken = data.accessJwt;
 
   // Get user ID
   const meRes = await fetch(`${API_URL}/users/me`, {
@@ -249,12 +249,12 @@ test.describe('Game Invite Friend Flow', () => {
     const centerX = viewport.width / 2;
 
     // Type email
-    await player1.page.mouse.click(centerX, viewport.height * 0.42);
+    await player1.page.mouse.click(centerX, viewport.height * 0.47);
     await player1.page.waitForTimeout(500);
     await player1.page.keyboard.type(player1.email, { delay: 20 });
 
     // Type password
-    await player1.page.mouse.click(centerX, viewport.height * 0.52);
+    await player1.page.mouse.click(centerX, viewport.height * 0.56);
     await player1.page.waitForTimeout(500);
     await player1.page.keyboard.type(player1.password, { delay: 20 });
 
@@ -271,11 +271,11 @@ test.describe('Game Invite Friend Flow', () => {
     await player2.page.goto('/');
     await player2.page.waitForTimeout(4000);
 
-    await player2.page.mouse.click(centerX, viewport.height * 0.42);
+    await player2.page.mouse.click(centerX, viewport.height * 0.47);
     await player2.page.waitForTimeout(500);
     await player2.page.keyboard.type(player2.email, { delay: 20 });
 
-    await player2.page.mouse.click(centerX, viewport.height * 0.52);
+    await player2.page.mouse.click(centerX, viewport.height * 0.56);
     await player2.page.waitForTimeout(500);
     await player2.page.keyboard.type(player2.password, { delay: 20 });
 

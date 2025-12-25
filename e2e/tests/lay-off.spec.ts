@@ -85,7 +85,7 @@ async function loginAndGetToken(player: Player): Promise<void> {
   }
 
   const data = await res.json();
-  player.accessToken = data.accessToken;
+  player.accessToken = data.accessJwt;
 
   // Get user ID
   const meRes = await fetch(`${API_URL}/users/me`, {
@@ -216,6 +216,15 @@ async function sendWsCommand(ws: WebSocket, command: any): Promise<any> {
   });
 }
 
+// Helper to join a game room (in lobby, before game starts - no state response expected)
+function joinGameRoom(ws: WebSocket, gameId: string, clientSeq: number): void {
+  ws.send(JSON.stringify({
+    type: 'cmd.joinGame',
+    gameId,
+    clientSeq,
+  }));
+}
+
 test.describe('Lay Off Feature', () => {
   let player1: Player;
   let player2: Player;
@@ -253,24 +262,16 @@ test.describe('Lay Off Feature', () => {
     const ws1 = await connectToWebSocket(player1.accessToken!);
     const ws2 = await connectToWebSocket(player2.accessToken!);
 
-    // Player 1 starts the game
+    // Both players join the game room first (before starting - no response expected for lobby)
+    joinGameRoom(ws1, gameId, 2);
+    joinGameRoom(ws2, gameId, 2);
+    await new Promise(r => setTimeout(r, 500)); // Give server time to process joins
+
+    // Player 1 starts the game (now both are in the room to receive state)
     await sendWsCommand(ws1, {
       type: 'cmd.startGame',
       gameId,
-      clientSeq: 2,
-    });
-
-    // Both players join the game room
-    await sendWsCommand(ws1, {
-      type: 'cmd.joinGame',
-      gameId,
       clientSeq: 3,
-    });
-
-    await sendWsCommand(ws2, {
-      type: 'cmd.joinGame',
-      gameId,
-      clientSeq: 2,
     });
 
     // Player 2 tries to lay off (but it's player 1's turn)
@@ -309,10 +310,11 @@ test.describe('Lay Off Feature', () => {
     const ws1 = await connectToWebSocket(player1.accessToken!);
     const ws2 = await connectToWebSocket(player2.accessToken!);
 
-    // Start game and join
-    await sendWsCommand(ws1, { type: 'cmd.startGame', gameId, clientSeq: 2 });
-    await sendWsCommand(ws1, { type: 'cmd.joinGame', gameId, clientSeq: 3 });
-    await sendWsCommand(ws2, { type: 'cmd.joinGame', gameId, clientSeq: 2 });
+    // Join game room first, then start
+    joinGameRoom(ws1, gameId, 2);
+    joinGameRoom(ws2, gameId, 2);
+    await new Promise(r => setTimeout(r, 500)); // Give server time to process joins
+    await sendWsCommand(ws1, { type: 'cmd.startGame', gameId, clientSeq: 3 });
 
     // Player 1 tries to lay off before drawing (in mustDraw phase)
     const layOffResult = await sendWsCommand(ws1, {
@@ -350,18 +352,18 @@ test.describe('Lay Off Feature', () => {
     const ws1 = await connectToWebSocket(player1.accessToken!);
     const ws2 = await connectToWebSocket(player2.accessToken!);
 
-    // Start game
-    await sendWsCommand(ws1, { type: 'cmd.startGame', gameId, clientSeq: 2 });
+    // Both join the room first (no response expected for lobby)
+    joinGameRoom(ws1, gameId, 2);
+    joinGameRoom(ws2, gameId, 2);
+    await new Promise(r => setTimeout(r, 500)); // Give server time to process joins
 
-    // Both join
-    const state1 = await sendWsCommand(ws1, { type: 'cmd.joinGame', gameId, clientSeq: 3 });
-    const state2 = await sendWsCommand(ws2, { type: 'cmd.joinGame', gameId, clientSeq: 2 });
+    // Start game (will broadcast state to both players)
+    const state1 = await sendWsCommand(ws1, { type: 'cmd.startGame', gameId, clientSeq: 3 });
 
     // Verify initial game state
     expect(state1.type).toBe('evt.state');
-    expect(state2.type).toBe('evt.state');
 
-    console.log('Game state received by both players');
+    console.log('Game started, state received');
 
     // Player 1 draws from stock
     const drawResult = await sendWsCommand(ws1, {
@@ -375,11 +377,12 @@ test.describe('Lay Off Feature', () => {
     console.log('Player 1 drew from stock successfully');
 
     // Get the game state to see player 1's hand
+    // State structure: { gameId, status, currentPlayerIndex, turnPhase, yourHand: string[], players: [], ... }
     const gameState = drawResult.state;
-    console.log(`Player 1 hand size: ${gameState.currentPlayer.hand.length}`);
+    const hand = gameState.yourHand;
+    console.log(`Player 1 hand size: ${hand?.length}`);
 
     // Player 1 discards first card (we'll use the actual card from the state)
-    const hand = gameState.currentPlayer.hand;
     if (hand && hand.length > 0) {
       const cardToDiscard = hand[0]; // First card in hand
 
@@ -432,11 +435,11 @@ test.describe('Lay Off Feature', () => {
     const centerX = viewport.width / 2;
 
     // Type credentials for player 1
-    await player1.page.mouse.click(centerX, viewport.height * 0.42);
+    await player1.page.mouse.click(centerX, viewport.height * 0.47);
     await player1.page.waitForTimeout(500);
     await player1.page.keyboard.type(player1.email, { delay: 20 });
 
-    await player1.page.mouse.click(centerX, viewport.height * 0.52);
+    await player1.page.mouse.click(centerX, viewport.height * 0.56);
     await player1.page.waitForTimeout(500);
     await player1.page.keyboard.type(player1.password, { delay: 20 });
 
@@ -452,11 +455,11 @@ test.describe('Lay Off Feature', () => {
     await player2.page.goto('/');
     await player2.page.waitForTimeout(4000);
 
-    await player2.page.mouse.click(centerX, viewport.height * 0.42);
+    await player2.page.mouse.click(centerX, viewport.height * 0.47);
     await player2.page.waitForTimeout(500);
     await player2.page.keyboard.type(player2.email, { delay: 20 });
 
-    await player2.page.mouse.click(centerX, viewport.height * 0.52);
+    await player2.page.mouse.click(centerX, viewport.height * 0.56);
     await player2.page.waitForTimeout(500);
     await player2.page.keyboard.type(player2.password, { delay: 20 });
 
