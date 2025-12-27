@@ -18,6 +18,7 @@ void main() {
 
   // Get player role from dart-define
   const playerRole = String.fromEnvironment('PLAYER_ROLE', defaultValue: 'host');
+  // ignore: unused_local_variable
   const sharedGameId = String.fromEnvironment('GAME_ID', defaultValue: '');
 
   group('Two iOS Players Game - $playerRole', () {

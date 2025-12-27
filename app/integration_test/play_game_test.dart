@@ -215,11 +215,6 @@ void main() {
       } else if (yourTurnDiscard.evaluate().isNotEmpty) {
         print('Turn $turn: Discarding...');
 
-        // Find cards in hand and tap one to select
-        final cardWidgets = find.byType(GestureDetector);
-        // The hand cards are in the lower part of the screen
-        // Let's try to find any card and double-tap to discard
-
         // Look for card images or containers in the hand area
         final handCards = find.descendant(
           of: find.byType(Wrap),

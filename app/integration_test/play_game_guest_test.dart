@@ -12,7 +12,6 @@ void main() {
 
   testWidgets('GUEST: Play game', (tester) async {
     const credsFile = '/tmp/guest_creds.json';
-    const isHost = false;
 
     Map<String, dynamic> creds;
     try {

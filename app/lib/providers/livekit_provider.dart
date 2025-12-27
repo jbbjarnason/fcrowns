@@ -1,12 +1,12 @@
-import 'package:flutter/foundation.dart';
-import 'package:livekit_client/livekit_client.dart';
+import 'package:flutter/widgets.dart';
+import 'package:livekit_client/livekit_client.dart' as livekit;
 
 import '../services/api_service.dart';
 
 /// Manages LiveKit audio/video for the game room
-class LiveKitProvider extends ChangeNotifier {
-  Room? _room;
-  LocalParticipant? _localParticipant;
+class LiveKitProvider extends ChangeNotifier with WidgetsBindingObserver {
+  livekit.Room? _room;
+  livekit.LocalParticipant? _localParticipant;
   bool _audioEnabled = true;
   bool _videoEnabled = false;
   bool _speakerEnabled = true; // Whether to hear other players
@@ -14,9 +14,15 @@ class LiveKitProvider extends ChangeNotifier {
   String? _error;
   bool _disposed = false;
 
+  // For reconnection after app lifecycle
+  ApiService? _api;
+  String? _gameId;
+  bool _wasConnected = false;
+
   // Getters
-  Room? get room => _room;
-  bool get isConnected => _room?.connectionState == ConnectionState.connected;
+  livekit.Room? get room => _room;
+  bool get isConnected =>
+      _room?.connectionState == livekit.ConnectionState.connected;
   bool get audioEnabled => _audioEnabled;
   bool get videoEnabled => _videoEnabled;
   bool get speakerEnabled => _speakerEnabled;
@@ -24,11 +30,11 @@ class LiveKitProvider extends ChangeNotifier {
   String? get error => _error;
 
   // Get remote participants
-  List<RemoteParticipant> get remoteParticipants =>
+  List<livekit.RemoteParticipant> get remoteParticipants =>
       _room?.remoteParticipants.values.toList() ?? [];
 
   // Get the active player's video track (if publishing)
-  VideoTrack? get activePlayerVideoTrack {
+  livekit.VideoTrack? get activePlayerVideoTrack {
     if (_activePlayerId == null || _room == null) {
       debugPrint('[LiveKit] activePlayerVideoTrack: no active player or room');
       return null;
@@ -41,7 +47,7 @@ class LiveKitProvider extends ChangeNotifier {
       for (final pub in publications) {
         debugPrint('[LiveKit] - Publication: ${pub.sid}, track: ${pub.track}, subscribed: ${pub.subscribed}');
       }
-      final track = publications.firstOrNull?.track as VideoTrack?;
+      final track = publications.firstOrNull?.track as livekit.VideoTrack?;
       debugPrint('[LiveKit] Returning local video track: $track');
       return track;
     }
@@ -51,13 +57,94 @@ class LiveKitProvider extends ChangeNotifier {
     if (participant != null) {
       final publications = participant.videoTrackPublications;
       debugPrint('[LiveKit] Remote participant $_activePlayerId video publications: ${publications.length}');
-      final track = publications.firstOrNull?.track as VideoTrack?;
+      final track = publications.firstOrNull?.track as livekit.VideoTrack?;
       debugPrint('[LiveKit] Returning remote video track: $track');
       return track;
     }
 
     debugPrint('[LiveKit] No video track found for active player: $_activePlayerId');
     return null;
+  }
+
+  LiveKitProvider() {
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    debugPrint('[LiveKit] App lifecycle state changed: $state');
+
+    if (state == AppLifecycleState.resumed) {
+      _handleAppResumed();
+    } else if (state == AppLifecycleState.paused) {
+      _wasConnected = isConnected;
+      debugPrint('[LiveKit] App paused, wasConnected: $_wasConnected');
+    }
+  }
+
+  Future<void> _handleAppResumed() async {
+    debugPrint('[LiveKit] App resumed, wasConnected: $_wasConnected, currentlyConnected: $isConnected');
+
+    if (_disposed) return;
+
+    // Give the room a moment to detect its state
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    if (_disposed) return;
+
+    // Check if we need to reconnect
+    if (_wasConnected && !isConnected && _api != null && _gameId != null) {
+      debugPrint('[LiveKit] Connection lost during background, attempting reconnect...');
+      await reconnect();
+    } else if (isConnected) {
+      // Connection is still active, but video track may need re-enabling
+      debugPrint('[LiveKit] Still connected, checking video state...');
+      await _recoverVideoIfNeeded();
+    }
+  }
+
+  Future<void> _recoverVideoIfNeeded() async {
+    if (_localParticipant == null) return;
+
+    // If we are the active player, ensure camera is enabled
+    if (_activePlayerId == _localParticipant?.identity && _videoEnabled) {
+      final hasVideoTrack = _localParticipant!.videoTrackPublications.isNotEmpty;
+      debugPrint('[LiveKit] Video recovery check: should have video=$_videoEnabled, hasTrack=$hasVideoTrack');
+
+      if (!hasVideoTrack) {
+        debugPrint('[LiveKit] Re-enabling camera after app resume');
+        await _localParticipant?.setCameraEnabled(false);
+        await Future.delayed(const Duration(milliseconds: 100));
+        await _localParticipant?.setCameraEnabled(true);
+        notifyListeners();
+      }
+    }
+  }
+
+  /// Reconnect to LiveKit (used after app lifecycle or manual retry)
+  Future<bool> reconnect() async {
+    if (_api == null || _gameId == null) {
+      debugPrint('[LiveKit] Cannot reconnect: missing api or gameId');
+      return false;
+    }
+
+    debugPrint('[LiveKit] Reconnecting...');
+
+    // Disconnect existing room if any
+    try {
+      await _room?.disconnect();
+      _room?.removeListener(_onRoomEvent);
+    } catch (e) {
+      debugPrint('[LiveKit] Error during disconnect before reconnect: $e');
+    }
+
+    _room = null;
+    _localParticipant = null;
+
+    // Reconnect
+    await connect(api: _api!, gameId: _gameId!);
+
+    return isConnected;
   }
 
   /// Connect to the LiveKit room for a game
@@ -67,6 +154,8 @@ class LiveKitProvider extends ChangeNotifier {
   }) async {
     try {
       _error = null;
+      _api = api;
+      _gameId = gameId;
       debugPrint('[LiveKit] Connecting to room for game: $gameId');
 
       // Get LiveKit token from server
@@ -84,20 +173,20 @@ class LiveKitProvider extends ChangeNotifier {
       debugPrint('[LiveKit] Got token, connecting to: $url');
 
       // Create room with options
-      _room = Room(
-        roomOptions: RoomOptions(
+      _room = livekit.Room(
+        roomOptions: livekit.RoomOptions(
           adaptiveStream: true,
           dynacast: true,
           // Auto-subscribe to tracks - we'll manage speaker state separately
-          defaultAudioCaptureOptions: const AudioCaptureOptions(
+          defaultAudioCaptureOptions: const livekit.AudioCaptureOptions(
             echoCancellation: true,
             noiseSuppression: true,
             autoGainControl: true,
           ),
-          defaultAudioPublishOptions: const AudioPublishOptions(
+          defaultAudioPublishOptions: const livekit.AudioPublishOptions(
             dtx: true,
           ),
-          defaultVideoPublishOptions: const VideoPublishOptions(
+          defaultVideoPublishOptions: const livekit.VideoPublishOptions(
             simulcast: true,
           ),
         ),
@@ -150,6 +239,7 @@ class LiveKitProvider extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    WidgetsBinding.instance.removeObserver(this);
     _room?.disconnect();
     _room?.removeListener(_onRoomEvent);
     super.dispose();
@@ -222,7 +312,7 @@ class LiveKitProvider extends ChangeNotifier {
     debugPrint('[LiveKit] toggleSpeaker: setting speaker to $_speakerEnabled');
 
     // Subscribe/unsubscribe from remote audio tracks to enable/disable hearing them
-    for (final participant in _room?.remoteParticipants.values ?? <RemoteParticipant>[]) {
+    for (final participant in _room?.remoteParticipants.values ?? <livekit.RemoteParticipant>[]) {
       debugPrint('[LiveKit] toggleSpeaker: processing participant ${participant.identity}, audio pubs: ${participant.audioTrackPublications.length}');
       for (final pub in participant.audioTrackPublications) {
         if (_speakerEnabled) {
@@ -244,7 +334,7 @@ class LiveKitProvider extends ChangeNotifier {
     debugPrint('[LiveKit] Room event fired - connection: ${_room?.connectionState}, remoteParticipants: ${_room?.remoteParticipants.length}');
 
     // Log and manage remote participant audio tracks
-    for (final participant in _room?.remoteParticipants.values ?? <RemoteParticipant>[]) {
+    for (final participant in _room?.remoteParticipants.values ?? <livekit.RemoteParticipant>[]) {
       for (final pub in participant.audioTrackPublications) {
         debugPrint('[LiveKit] Remote audio track: ${participant.identity}, subscribed: ${pub.subscribed}, muted: ${pub.muted}, speakerEnabled: $_speakerEnabled');
 

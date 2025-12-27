@@ -42,10 +42,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   bool _canNudge = false;
   Timer? _nudgeTimer;
 
-  // Hand reordering - tracks display order of card indices
-  // Maps display position -> original hand index
-  List<int> _handDisplayOrder = [];
-  int? _lastHandLength;
+  // Hand reordering - tracks display order using card strings
+  // This preserves order across draws/discards since we track by card value, not index
+  List<String> _handCardOrder = [];
 
   @override
   void initState() {
@@ -104,13 +103,63 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     }
   }
 
-  /// Update hand display order when hand changes
-  void _updateHandDisplayOrder(List<String> hand) {
-    if (hand.length != _lastHandLength) {
-      // Hand size changed - reset order to default
-      _handDisplayOrder = List.generate(hand.length, (i) => i);
-      _lastHandLength = hand.length;
+  /// Update hand card order when hand changes
+  /// Preserves user's custom ordering by tracking cards by their string value
+  void _updateHandCardOrder(List<String> hand) {
+    final handSet = hand.toSet();
+    final orderSet = _handCardOrder.toSet();
+
+    // Remove cards that are no longer in hand (discarded/laid)
+    _handCardOrder.removeWhere((card) => !handSet.contains(card));
+
+    // Add new cards at the end (drawn cards)
+    for (final card in hand) {
+      if (!orderSet.contains(card)) {
+        _handCardOrder.add(card);
+      }
     }
+  }
+
+  /// Get display order as indices into the hand list
+  List<int> _getHandDisplayOrder(List<String> hand) {
+    _updateHandCardOrder(hand);
+
+    // Convert card strings to indices
+    final order = <int>[];
+    for (final card in _handCardOrder) {
+      final index = hand.indexOf(card);
+      if (index != -1) {
+        order.add(index);
+      }
+    }
+
+    // Add any cards not in our order (shouldn't happen, but be safe)
+    for (int i = 0; i < hand.length; i++) {
+      if (!order.contains(i)) {
+        order.add(i);
+      }
+    }
+
+    return order;
+  }
+
+  /// Get the wild rank name for a given round number
+  String _getWildRankName(int roundNumber) {
+    final wildValue = roundNumber + 2; // Round 1 = 3s, Round 4 = 6s, etc.
+    return switch (wildValue) {
+      3 => '3',
+      4 => '4',
+      5 => '5',
+      6 => '6',
+      7 => '7',
+      8 => '8',
+      9 => '9',
+      10 => '10',
+      11 => 'J',
+      12 => 'Q',
+      13 => 'K',
+      _ => '?',
+    };
   }
 
   /// Reorder cards in hand (visual only - doesn't affect server state)
@@ -119,8 +168,8 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       if (newIndex > oldIndex) {
         newIndex -= 1;
       }
-      final item = _handDisplayOrder.removeAt(oldIndex);
-      _handDisplayOrder.insert(newIndex, item);
+      final item = _handCardOrder.removeAt(oldIndex);
+      _handCardOrder.insert(newIndex, item);
     });
   }
 
@@ -984,11 +1033,11 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     // Build list of (index, card) for cards NOT in melds
     final hand = game.hand as List<String>;
 
-    // Update display order if hand changed
-    _updateHandDisplayOrder(hand);
+    // Get display order (preserves user's custom ordering)
+    final handDisplayOrder = _getHandDisplayOrder(hand);
 
     // Filter out cards in melds from display order
-    final availableDisplayOrder = _handDisplayOrder
+    final availableDisplayOrder = handDisplayOrder
         .where((i) => !indicesInMelds.contains(i) && i < hand.length)
         .toList();
 
@@ -1006,7 +1055,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
               const SizedBox(width: 8),
               // Reorder hint icon
               Tooltip(
-                message: 'Long press and drag to reorder cards',
+                message: 'Drag the handle above cards to reorder',
                 child: Icon(
                   Icons.swap_horiz_rounded,
                   size: 16,
@@ -1014,6 +1063,37 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                 ),
               ),
               const Spacer(),
+              // Wild card indicator
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppTheme.warning.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppTheme.warning.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.star_rounded,
+                      size: 14,
+                      color: AppTheme.warning,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Wild: ${_getWildRankName(game.roundNumber)}s',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 12,
+                        color: AppTheme.warning,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
               // Score button - opens scoreboard on tap
               Material(
                 color: Colors.transparent,
@@ -1056,18 +1136,26 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           const SizedBox(height: 8),
           // Reorderable hand using ReorderableListView in horizontal mode
           SizedBox(
-            height: 100, // Fixed height for the reorderable area
+            height: 110, // Fixed height for the reorderable area (card + drag handle)
             child: ReorderableListView.builder(
               scrollDirection: Axis.horizontal,
               buildDefaultDragHandles: false,
               itemCount: availableDisplayOrder.length,
               onReorder: (oldIndex, newIndex) {
-                // Convert from available display indices to full hand indices
-                final oldHandIndex = _handDisplayOrder.indexOf(availableDisplayOrder[oldIndex]);
-                final newHandIndex = newIndex >= availableDisplayOrder.length
-                    ? _handDisplayOrder.length
-                    : _handDisplayOrder.indexOf(availableDisplayOrder[newIndex]);
-                _reorderHand(oldHandIndex, newHandIndex);
+                // Convert from available display indices to card order indices
+                final oldCard = hand[availableDisplayOrder[oldIndex]];
+                final oldCardOrderIndex = _handCardOrder.indexOf(oldCard);
+
+                // Find the target position in _handCardOrder
+                int newCardOrderIndex;
+                if (newIndex >= availableDisplayOrder.length) {
+                  newCardOrderIndex = _handCardOrder.length;
+                } else {
+                  final newCard = hand[availableDisplayOrder[newIndex]];
+                  newCardOrderIndex = _handCardOrder.indexOf(newCard);
+                }
+
+                _reorderHand(oldCardOrderIndex, newCardOrderIndex);
               },
               proxyDecorator: (child, index, animation) {
                 return AnimatedBuilder(
@@ -1091,27 +1179,47 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                 final card = hand[handIndex];
                 final isSelected = _selectedCardIndices.contains(handIndex);
 
-                return ReorderableDragStartListener(
+                return Padding(
                   key: ValueKey('card_$handIndex'),
-                  index: displayIndex,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 2),
-                    child: GestureDetector(
-                      onTap: () {
-                        if (game.isMyTurn && game.turnPhase == 'mustDiscard') {
-                          _toggleCardSelection(handIndex);
-                        }
-                      },
-                      onDoubleTap: () {
-                        if (game.isMyTurn && game.turnPhase == 'mustDiscard' && !game.isFinalTurnPhase) {
-                          game.discard(card);
-                        }
-                      },
-                      child: CardWidget(
-                        cardCode: card,
-                        isSelected: isSelected,
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Drag handle at top - only this triggers reorder
+                      ReorderableDragStartListener(
+                        index: displayIndex,
+                        child: Container(
+                          width: 65,
+                          height: 12,
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                            borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                          ),
+                          child: Icon(
+                            Icons.drag_handle,
+                            size: 12,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
                       ),
-                    ),
+                      // Card - tap/double-tap only, no drag
+                      GestureDetector(
+                        onTap: () {
+                          if (game.isMyTurn && game.turnPhase == 'mustDiscard') {
+                            _toggleCardSelection(handIndex);
+                          }
+                        },
+                        onDoubleTap: () {
+                          if (game.isMyTurn && game.turnPhase == 'mustDiscard' && !game.isFinalTurnPhase) {
+                            game.discard(card);
+                          }
+                        },
+                        child: CardWidget(
+                          cardCode: card,
+                          isSelected: isSelected,
+                        ),
+                      ),
+                    ],
                   ),
                 );
               },

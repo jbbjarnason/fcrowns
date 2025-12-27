@@ -160,15 +160,73 @@ class _ConnectionIndicator extends StatelessWidget {
 }
 
 /// Video widget for active player
-class ActivePlayerVideo extends ConsumerWidget {
+class ActivePlayerVideo extends ConsumerStatefulWidget {
   const ActivePlayerVideo({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ActivePlayerVideo> createState() => _ActivePlayerVideoState();
+}
+
+class _ActivePlayerVideoState extends ConsumerState<ActivePlayerVideo> {
+  bool _isReconnecting = false;
+
+  Future<void> _handleReconnect() async {
+    setState(() => _isReconnecting = true);
+    try {
+      await ref.read(liveKitProvider).reconnect();
+    } finally {
+      if (mounted) {
+        setState(() => _isReconnecting = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final livekit = ref.watch(liveKitProvider);
     final videoTrack = livekit.activePlayerVideoTrack;
 
     debugPrint('[ActivePlayerVideo] videoTrack: $videoTrack, activePlayer: ${livekit.activePlayerId}, connected: ${livekit.isConnected}');
+
+    // Show reconnect button if disconnected
+    if (!livekit.isConnected) {
+      return Container(
+        width: 140,
+        height: 180,
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+          border: Border.all(color: AppTheme.error.withValues(alpha: 0.5)),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.wifi_off,
+              color: AppTheme.error,
+              size: 28,
+            ),
+            const SizedBox(height: 8),
+            if (_isReconnecting)
+              const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            else
+              TextButton.icon(
+                onPressed: _handleReconnect,
+                icon: const Icon(Icons.refresh, size: 16),
+                label: const Text('Reconnect'),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  textStyle: const TextStyle(fontSize: 12),
+                ),
+              ),
+          ],
+        ),
+      );
+    }
 
     if (videoTrack == null) {
       return Container(

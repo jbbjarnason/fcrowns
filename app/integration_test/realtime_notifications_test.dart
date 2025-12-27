@@ -120,9 +120,6 @@ void main() {
             }
           }
 
-          // Check notification badge
-          final badges = find.byType(Container);
-
           // Log progress every 10 seconds
           if (i % 10 == 0) {
             print('[$i/120] Waiting... (invite: $gameInviteReceived, friend: $friendRequestReceived, deleted: $gameDeletedReceived)');

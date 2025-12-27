@@ -15,6 +15,9 @@ class MockLocalVideoTrack extends Mock implements LocalVideoTrack {}
 class MockRemoteVideoTrack extends Mock implements RemoteVideoTrack {}
 
 void main() {
+  // Required for LiveKitProvider which uses WidgetsBindingObserver
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('LiveKitProvider', () {
     late LiveKitProvider provider;
 

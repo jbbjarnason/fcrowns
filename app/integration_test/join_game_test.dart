@@ -38,7 +38,7 @@ void main() {
 
       // Login
       final textFields = find.byType(TextFormField);
-      await tester.enterText(textFields.at(0), credentials!['email']);
+      await tester.enterText(textFields.at(0), credentials['email']);
       await tester.enterText(textFields.at(1), credentials['password']);
       await tester.tap(find.widgetWithText(ElevatedButton, 'Login'));
       await tester.pumpAndSettle(const Duration(seconds: 3));
