@@ -6,7 +6,7 @@ void main() {
   group('GameState', () {
     group('creation', () {
       test('creates game in lobby state', () {
-        final game = GameState.create(
+        final game = GameState.create(firstRoundStarter: 0, 
           gameId: 'test-game',
           playerIds: ['p1', 'p2', 'p3'],
         );
@@ -18,7 +18,7 @@ void main() {
       });
 
       test('assigns seats correctly', () {
-        final game = GameState.create(
+        final game = GameState.create(firstRoundStarter: 0, 
           gameId: 'test-game',
           playerIds: ['p1', 'p2', 'p3'],
         );
@@ -33,11 +33,11 @@ void main() {
 
       test('rejects invalid player counts', () {
         expect(
-          () => GameState.create(gameId: 'g', playerIds: ['p1']),
+          () => GameState.create(firstRoundStarter: 0, gameId: 'g', playerIds: ['p1']),
           throwsArgumentError,
         );
         expect(
-          () => GameState.create(
+          () => GameState.create(firstRoundStarter: 0, 
             gameId: 'g',
             playerIds: ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8'],
           ),
@@ -48,7 +48,7 @@ void main() {
 
     group('starting game', () {
       test('transitions to active and starts round 1', () {
-        final game = GameState.create(
+        final game = GameState.create(firstRoundStarter: 0, 
           gameId: 'test-game',
           playerIds: ['p1', 'p2'],
           random: Random(42),
@@ -63,7 +63,7 @@ void main() {
       });
 
       test('deals correct number of cards', () {
-        final game = GameState.create(
+        final game = GameState.create(firstRoundStarter: 0, 
           gameId: 'test-game',
           playerIds: ['p1', 'p2', 'p3'],
           random: Random(42),
@@ -77,7 +77,7 @@ void main() {
       });
 
       test('starts discard pile with one card', () {
-        final game = GameState.create(
+        final game = GameState.create(firstRoundStarter: 0, 
           gameId: 'test-game',
           playerIds: ['p1', 'p2'],
           random: Random(42),
@@ -90,7 +90,7 @@ void main() {
       });
 
       test('first player must draw', () {
-        final game = GameState.create(
+        final game = GameState.create(firstRoundStarter: 0, 
           gameId: 'test-game',
           playerIds: ['p1', 'p2'],
           random: Random(42),
@@ -103,7 +103,7 @@ void main() {
       });
 
       test('cannot start already started game', () {
-        final game = GameState.create(
+        final game = GameState.create(firstRoundStarter: 0, 
           gameId: 'test-game',
           playerIds: ['p1', 'p2'],
         );
@@ -117,7 +117,7 @@ void main() {
       late GameState game;
 
       setUp(() {
-        game = GameState.create(
+        game = GameState.create(firstRoundStarter: 0, 
           gameId: 'test-game',
           playerIds: ['p1', 'p2'],
           random: Random(42),
@@ -158,7 +158,7 @@ void main() {
       late GameState game;
 
       setUp(() {
-        game = GameState.create(
+        game = GameState.create(firstRoundStarter: 0, 
           gameId: 'test-game',
           playerIds: ['p1', 'p2'],
           random: Random(42),
@@ -187,7 +187,7 @@ void main() {
       });
 
       test('cannot discard before drawing', () {
-        final game2 = GameState.create(
+        final game2 = GameState.create(firstRoundStarter: 0, 
           gameId: 'test-game',
           playerIds: ['p1', 'p2'],
           random: Random(42),
@@ -210,7 +210,7 @@ void main() {
 
     group('laying melds', () {
       test('valid meld removes cards from hand', () {
-        final game = GameState.create(
+        final game = GameState.create(firstRoundStarter: 0, 
           gameId: 'test-game',
           playerIds: ['p1', 'p2'],
           random: Random(42),
@@ -241,7 +241,7 @@ void main() {
       });
 
       test('rejects invalid meld', () {
-        final game = GameState.create(
+        final game = GameState.create(firstRoundStarter: 0, 
           gameId: 'test-game',
           playerIds: ['p1', 'p2'],
           random: Random(42),
@@ -272,7 +272,7 @@ void main() {
 
     group('going out', () {
       test('valid go out triggers final turn phase', () {
-        final game = GameState.create(
+        final game = GameState.create(firstRoundStarter: 0, 
           gameId: 'test-game',
           playerIds: ['p1', 'p2'],
           random: Random(42),
@@ -306,7 +306,7 @@ void main() {
       });
 
       test('other players get final turn', () {
-        final game = GameState.create(
+        final game = GameState.create(firstRoundStarter: 0, 
           gameId: 'test-game',
           playerIds: ['p1', 'p2', 'p3'],
           random: Random(42),
@@ -354,7 +354,7 @@ void main() {
       });
 
       test('cannot go out during final turn phase', () {
-        final game = GameState.create(
+        final game = GameState.create(firstRoundStarter: 0, 
           gameId: 'test-game',
           playerIds: ['p1', 'p2'],
           random: Random(42),
@@ -410,7 +410,7 @@ void main() {
 
     group('scoring', () {
       test('scores remaining cards at end of round', () {
-        final game = GameState.create(
+        final game = GameState.create(firstRoundStarter: 0, 
           gameId: 'test-game',
           playerIds: ['p1', 'p2'],
           random: Random(42),
@@ -458,7 +458,7 @@ void main() {
 
       test('wild cards score 20, jokers score 50', () {
         // Test scoring in round 1 where 3s are wild
-        final game = GameState.create(
+        final game = GameState.create(firstRoundStarter: 0, 
           gameId: 'test-game',
           playerIds: ['p1', 'p2'],
           random: Random(42),
@@ -505,19 +505,19 @@ void main() {
 
     group('game completion', () {
       test('game finishes after round 11 completion', () {
-        final game = GameState.create(
+        final game = GameState.create(firstRoundStarter: 0,
           gameId: 'test-game',
           playerIds: ['p1', 'p2'],
           random: Random(42),
         );
         game.startGame();
 
-        // Play through 11 rounds by having player 0 go out each time
+        // Play through 11 rounds - current player goes out, other takes final turn
         for (var round = 1; round <= 11; round++) {
-          // Player 0's turn - go out with all jokers
+          // Current player's turn - go out with all jokers
           game.drawFromStock();
-          final player0 = game.players[0];
-          player0.setHand([
+          final goOutPlayer = game.currentPlayer;
+          goOutPlayer.setHand([
             const Card.joker(),
             const Card.joker(),
             const Card.joker(),
@@ -531,7 +531,7 @@ void main() {
             Card(Suit.spades, Rank.king),
           );
 
-          // Player 1 takes final turn
+          // Other player takes final turn
           game.drawFromStock();
           game.discard(game.currentPlayer.hand.first);
 
@@ -548,7 +548,7 @@ void main() {
 
     group('player view', () {
       test('hides other players hands', () {
-        final game = GameState.create(
+        final game = GameState.create(firstRoundStarter: 0, 
           gameId: 'test-game',
           playerIds: ['p1', 'p2', 'p3'],
           random: Random(42),
@@ -577,7 +577,7 @@ void main() {
 
     group('snapshot serialization', () {
       test('roundtrips full snapshot', () {
-        final game = GameState.create(
+        final game = GameState.create(firstRoundStarter: 0, 
           gameId: 'test-game',
           playerIds: ['p1', 'p2'],
           random: Random(42),
@@ -608,7 +608,7 @@ void main() {
 
     group('laying off cards', () {
       test('can lay off to own meld during mustDiscard phase', () {
-        final game = GameState.create(
+        final game = GameState.create(firstRoundStarter: 0, 
           gameId: 'test-game',
           playerIds: ['p1', 'p2'],
           random: Random(42),
@@ -643,7 +643,7 @@ void main() {
       });
 
       test('can lay off to another player\'s meld', () {
-        final game = GameState.create(
+        final game = GameState.create(firstRoundStarter: 0, 
           gameId: 'test-game',
           playerIds: ['p1', 'p2'],
           random: Random(42),
@@ -686,7 +686,7 @@ void main() {
       });
 
       test('can lay off multiple cards at once', () {
-        final game = GameState.create(
+        final game = GameState.create(firstRoundStarter: 0, 
           gameId: 'test-game',
           playerIds: ['p1', 'p2'],
           random: Random(42),
@@ -724,7 +724,7 @@ void main() {
       });
 
       test('cannot lay off during mustDraw phase', () {
-        final game = GameState.create(
+        final game = GameState.create(firstRoundStarter: 0, 
           gameId: 'test-game',
           playerIds: ['p1', 'p2'],
           random: Random(42),
@@ -765,7 +765,7 @@ void main() {
       });
 
       test('cannot lay off during final turn phase', () {
-        final game = GameState.create(
+        final game = GameState.create(firstRoundStarter: 0, 
           gameId: 'test-game',
           playerIds: ['p1', 'p2'],
           random: Random(42),
@@ -813,7 +813,7 @@ void main() {
       });
 
       test('cannot lay off with cards not in hand', () {
-        final game = GameState.create(
+        final game = GameState.create(firstRoundStarter: 0, 
           gameId: 'test-game',
           playerIds: ['p1', 'p2'],
           random: Random(42),
@@ -845,7 +845,7 @@ void main() {
       });
 
       test('cannot lay off with invalid extension', () {
-        final game = GameState.create(
+        final game = GameState.create(firstRoundStarter: 0, 
           gameId: 'test-game',
           playerIds: ['p1', 'p2'],
           random: Random(42),
@@ -878,7 +878,7 @@ void main() {
       });
 
       test('cannot lay off to invalid player index', () {
-        final game = GameState.create(
+        final game = GameState.create(firstRoundStarter: 0, 
           gameId: 'test-game',
           playerIds: ['p1', 'p2'],
           random: Random(42),
@@ -910,7 +910,7 @@ void main() {
       });
 
       test('cannot lay off to invalid meld index', () {
-        final game = GameState.create(
+        final game = GameState.create(firstRoundStarter: 0, 
           gameId: 'test-game',
           playerIds: ['p1', 'p2'],
           random: Random(42),
@@ -942,7 +942,7 @@ void main() {
       });
 
       test('cannot lay off empty cards list', () {
-        final game = GameState.create(
+        final game = GameState.create(firstRoundStarter: 0, 
           gameId: 'test-game',
           playerIds: ['p1', 'p2'],
           random: Random(42),
@@ -973,7 +973,7 @@ void main() {
       });
 
       test('lay off to book with matching rank', () {
-        final game = GameState.create(
+        final game = GameState.create(firstRoundStarter: 0, 
           gameId: 'test-game',
           playerIds: ['p1', 'p2'],
           random: Random(42),

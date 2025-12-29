@@ -42,9 +42,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   bool _canNudge = false;
   Timer? _nudgeTimer;
 
-  // Hand reordering - tracks display order using card strings
+  // Hand reordering - tracks display order using card strings (null = empty slot)
   // This preserves order across draws/discards since we track by card value, not index
-  final List<String> _handCardOrder = [];
+  final List<String?> _handSlots = [];
 
   @override
   void initState() {
@@ -103,44 +103,56 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     }
   }
 
-  /// Update hand card order when hand changes
-  /// Preserves user's custom ordering by tracking cards by their string value
-  void _updateHandCardOrder(List<String> hand) {
+  /// Update hand slots when hand changes
+  /// Preserves user's custom ordering and empty slots
+  void _updateHandSlots(List<String> hand) {
     final handSet = hand.toSet();
-    final orderSet = _handCardOrder.toSet();
 
-    // Remove cards that are no longer in hand (discarded/laid)
-    _handCardOrder.removeWhere((card) => !handSet.contains(card));
+    // Track which cards we've placed
+    final placedCards = <String>{};
 
-    // Add new cards at the end (drawn cards)
-    for (final card in hand) {
-      if (!orderSet.contains(card)) {
-        _handCardOrder.add(card);
+    // Replace cards that are no longer in hand with null (empty slot)
+    // Keep cards that are still in hand
+    for (int i = 0; i < _handSlots.length; i++) {
+      final card = _handSlots[i];
+      if (card != null) {
+        if (handSet.contains(card) && !placedCards.contains(card)) {
+          placedCards.add(card);
+        } else {
+          _handSlots[i] = null; // Card was discarded/laid or duplicate
+        }
       }
+    }
+
+    // Add new cards (drawn cards) to empty slots first, then append
+    for (final card in hand) {
+      if (!placedCards.contains(card)) {
+        // Try to find an empty slot
+        final emptyIndex = _handSlots.indexOf(null);
+        if (emptyIndex != -1) {
+          _handSlots[emptyIndex] = card;
+        } else {
+          _handSlots.add(card);
+        }
+        placedCards.add(card);
+      }
+    }
+
+    // Trim trailing empty slots (but keep internal ones)
+    while (_handSlots.isNotEmpty && _handSlots.last == null) {
+      _handSlots.removeLast();
     }
   }
 
-  /// Get display order as indices into the hand list
-  List<int> _getHandDisplayOrder(List<String> hand) {
-    _updateHandCardOrder(hand);
+  /// Get list of slot contents (card index or -1 for empty)
+  /// Returns list where each element is either a hand index or -1 (empty slot)
+  List<int> _getHandSlotContents(List<String> hand) {
+    _updateHandSlots(hand);
 
-    // Convert card strings to indices
-    final order = <int>[];
-    for (final card in _handCardOrder) {
-      final index = hand.indexOf(card);
-      if (index != -1) {
-        order.add(index);
-      }
-    }
-
-    // Add any cards not in our order (shouldn't happen, but be safe)
-    for (int i = 0; i < hand.length; i++) {
-      if (!order.contains(i)) {
-        order.add(i);
-      }
-    }
-
-    return order;
+    return _handSlots.map((card) {
+      if (card == null) return -1;
+      return hand.indexOf(card);
+    }).toList();
   }
 
   /// Get the wild rank name for a given round number
@@ -162,15 +174,31 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     };
   }
 
-  /// Reorder cards in hand (visual only - doesn't affect server state)
-  void _reorderHand(int oldIndex, int newIndex) {
+  /// Swap/move cards in slots (visual only - doesn't affect server state)
+  /// If target slot is empty, card moves there. If target has card, they swap.
+  void _swapSlots(int fromSlotIndex, int toSlotIndex) {
+    if (fromSlotIndex == toSlotIndex) return;
     setState(() {
-      if (newIndex > oldIndex) {
-        newIndex -= 1;
-      }
-      final item = _handCardOrder.removeAt(oldIndex);
-      _handCardOrder.insert(newIndex, item);
+      final temp = _handSlots[fromSlotIndex];
+      _handSlots[fromSlotIndex] = _handSlots[toSlotIndex];
+      _handSlots[toSlotIndex] = temp;
     });
+  }
+
+  /// Add an empty slot after the given index
+  void _addEmptySlotAfter(int slotIndex) {
+    setState(() {
+      _handSlots.insert(slotIndex + 1, null);
+    });
+  }
+
+  /// Remove empty slot at index (only if empty)
+  void _removeEmptySlot(int slotIndex) {
+    if (slotIndex >= 0 && slotIndex < _handSlots.length && _handSlots[slotIndex] == null) {
+      setState(() {
+        _handSlots.removeAt(slotIndex);
+      });
+    }
   }
 
   /// Reconnect WebSocket and LiveKit after error dismissal
@@ -1031,16 +1059,13 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   Widget _buildMyHand(game) {
     // Get indices of cards that are in staged melds
     final indicesInMelds = _meldIndices.expand((m) => m).toSet();
-    // Build list of (index, card) for cards NOT in melds
     final hand = game.hand as List<String>;
 
-    // Get display order (preserves user's custom ordering)
-    final handDisplayOrder = _getHandDisplayOrder(hand);
+    // Get slot contents (hand index or -1 for empty)
+    final slotContents = _getHandSlotContents(hand);
 
-    // Filter out cards in melds from display order
-    final availableDisplayOrder = handDisplayOrder
-        .where((i) => !indicesInMelds.contains(i) && i < hand.length)
-        .toList();
+    // Count actual cards (not in melds)
+    final cardCount = slotContents.where((i) => i != -1 && !indicesInMelds.contains(i)).length;
 
     final myScore = game.scores[ref.read(authProvider).userId] ?? 0;
 
@@ -1052,16 +1077,24 @@ class _GameScreenState extends ConsumerState<GameScreen> {
         children: [
           Row(
             children: [
-              Text('My Hand (${availableDisplayOrder.length})', style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text('My Hand ($cardCount)', style: const TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(width: 8),
               // Reorder hint icon
               Tooltip(
-                message: 'Long-press and drag cards to reorder',
+                message: 'Long-press drag to swap • Double-tap empty slot to remove',
                 child: Icon(
                   Icons.swap_horiz_rounded,
                   size: 16,
                   color: Theme.of(context).textTheme.bodySmall?.color,
                 ),
+              ),
+              // Add empty slot button
+              IconButton(
+                icon: const Icon(Icons.add_circle_outline, size: 18),
+                tooltip: 'Add empty slot',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                onPressed: () => _addEmptySlotAfter(_handSlots.length - 1),
               ),
               const Spacer(),
               // Wild card indicator
@@ -1135,31 +1168,66 @@ class _GameScreenState extends ConsumerState<GameScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          // Wrapping hand layout - cards wrap to multiple rows
+          // Wrapping hand layout with slots (cards + empty spaces)
           Wrap(
             spacing: 4,
             runSpacing: 4,
-            children: List.generate(availableDisplayOrder.length, (displayIndex) {
-              final handIndex = availableDisplayOrder[displayIndex];
-              final card = hand[handIndex];
-              final isSelected = _selectedCardIndices.contains(handIndex);
+            children: List.generate(slotContents.length, (slotIndex) {
+              final handIndex = slotContents[slotIndex];
+              final isEmptySlot = handIndex == -1;
+              final isInMeld = !isEmptySlot && indicesInMelds.contains(handIndex);
+
+              // Skip cards that are in staged melds
+              if (isInMeld) return const SizedBox.shrink();
+
+              final card = isEmptySlot ? null : hand[handIndex];
+              final isSelected = !isEmptySlot && _selectedCardIndices.contains(handIndex);
 
               return DragTarget<int>(
-                onWillAcceptWithDetails: (details) => details.data != displayIndex,
+                onWillAcceptWithDetails: (details) => details.data != slotIndex,
                 onAcceptWithDetails: (details) {
-                  final fromDisplayIndex = details.data;
-                  // Convert display indices to card order indices
-                  final fromCard = hand[availableDisplayOrder[fromDisplayIndex]];
-                  final toCard = hand[availableDisplayOrder[displayIndex]];
-                  final fromCardOrderIndex = _handCardOrder.indexOf(fromCard);
-                  final toCardOrderIndex = _handCardOrder.indexOf(toCard);
-                  _reorderHand(fromCardOrderIndex, toCardOrderIndex);
+                  _swapSlots(details.data, slotIndex);
                 },
                 builder: (context, candidateData, rejectedData) {
                   final isDropTarget = candidateData.isNotEmpty;
 
+                  // Empty slot widget
+                  if (isEmptySlot) {
+                    return GestureDetector(
+                      onDoubleTap: () => _removeEmptySlot(slotIndex),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        width: 64,
+                        height: 88,
+                        decoration: BoxDecoration(
+                          color: isDropTarget
+                              ? AppTheme.primary.withValues(alpha: 0.2)
+                              : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: isDropTarget
+                                ? AppTheme.primary
+                                : Theme.of(context).dividerColor,
+                            width: isDropTarget ? 2 : 1,
+                            style: isDropTarget ? BorderStyle.solid : BorderStyle.solid,
+                          ),
+                        ),
+                        child: Center(
+                          child: Icon(
+                            Icons.add,
+                            size: 24,
+                            color: isDropTarget
+                                ? AppTheme.primary
+                                : Theme.of(context).dividerColor,
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+
+                  // Card widget (draggable)
                   return LongPressDraggable<int>(
-                    data: displayIndex,
+                    data: slotIndex,
                     delay: const Duration(milliseconds: 150),
                     feedback: Material(
                       elevation: 8,
@@ -1167,16 +1235,18 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                       child: Transform.scale(
                         scale: 1.1,
                         child: CardWidget(
-                          cardCode: card,
+                          cardCode: card!,
                           isSelected: isSelected,
                         ),
                       ),
                     ),
-                    childWhenDragging: Opacity(
-                      opacity: 0.3,
-                      child: CardWidget(
-                        cardCode: card,
-                        isSelected: isSelected,
+                    childWhenDragging: Container(
+                      width: 64,
+                      height: 88,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Theme.of(context).dividerColor),
                       ),
                     ),
                     child: AnimatedContainer(

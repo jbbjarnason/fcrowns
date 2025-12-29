@@ -364,12 +364,10 @@ class WsHub {
       payloadJson: Value(jsonEncode(payload)),
     ));
 
-    // Save snapshot every 25 events
-    if (seq % 25 == 0) {
-      final gameState = _gameStates[gameId];
-      if (gameState != null) {
-        await _saveSnapshot(gameId, gameState);
-      }
+    // Save snapshot after every event to prevent data loss on server crash
+    final gameState = _gameStates[gameId];
+    if (gameState != null) {
+      await _saveSnapshot(gameId, gameState);
     }
   }
 

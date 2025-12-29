@@ -37,6 +37,9 @@ class GameState {
   int currentPlayerIndex;
   TurnPhase turnPhase;
 
+  /// Player index who starts round 1 (randomly chosen, then rotates each round).
+  int firstRoundStarter;
+
   /// Player who went out this round (triggers final turns).
   int? playerWhoWentOut;
 
@@ -55,6 +58,7 @@ class GameState {
     required this.roundNumber,
     required this.currentPlayerIndex,
     required this.turnPhase,
+    required this.firstRoundStarter,
     this.playerWhoWentOut,
     Set<int>? playersWithFinalTurn,
     Random? random,
@@ -64,19 +68,25 @@ class GameState {
         _random = random ?? Random();
 
   /// Creates a new game in lobby state.
+  /// [firstRoundStarter] can be provided for testing; if null, a random player is chosen.
   factory GameState.create({
     required String gameId,
     required List<String> playerIds,
     Random? random,
+    int? firstRoundStarter,
   }) {
     if (playerIds.length < 2 || playerIds.length > 7) {
       throw ArgumentError('Five Crowns requires 2-7 players');
     }
 
+    final rng = random ?? Random();
     final players = <Player>[];
     for (var i = 0; i < playerIds.length; i++) {
       players.add(Player(id: playerIds[i], seat: i));
     }
+
+    // Random player starts round 1, then rotates each round
+    final firstStarter = firstRoundStarter ?? rng.nextInt(playerIds.length);
 
     return GameState._(
       gameId: gameId,
@@ -87,7 +97,8 @@ class GameState {
       roundNumber: 0,
       currentPlayerIndex: 0,
       turnPhase: TurnPhase.mustDraw,
-      random: random,
+      firstRoundStarter: firstStarter,
+      random: rng,
     );
   }
 
@@ -150,8 +161,9 @@ class GameState {
     // Start discard pile with one card
     _discardPile.add(_stock.draw());
 
-    // First player starts
-    currentPlayerIndex = 0;
+    // Round-robin: player who starts rotates each round
+    // Round 1: firstRoundStarter, Round 2: firstRoundStarter+1, etc.
+    currentPlayerIndex = (firstRoundStarter + round - 1) % players.length;
     turnPhase = TurnPhase.mustDraw;
   }
 
@@ -450,6 +462,7 @@ class GameState {
       'roundNumber': roundNumber,
       'currentPlayerIndex': currentPlayerIndex,
       'turnPhase': turnPhase.name,
+      'firstRoundStarter': firstRoundStarter,
       'playerWhoWentOut': playerWhoWentOut,
       'playersWithFinalTurn': _playersWithFinalTurn.toList(),
       'discardPile': _discardPile.map((c) => c.encode()).toList(),
@@ -499,6 +512,7 @@ class GameState {
       roundNumber: snapshot['roundNumber'] as int,
       currentPlayerIndex: snapshot['currentPlayerIndex'] as int,
       turnPhase: TurnPhase.values.byName(snapshot['turnPhase'] as String),
+      firstRoundStarter: snapshot['firstRoundStarter'] as int? ?? 0,
       playerWhoWentOut: snapshot['playerWhoWentOut'] as int?,
       playersWithFinalTurn:
           (snapshot['playersWithFinalTurn'] as List).cast<int>().toSet(),

@@ -120,7 +120,7 @@ void main() {
       // Test the core logic which is what the WsHub uses internally
 
       // Create a game state with 2 players
-      final gameState = core.GameState.create(
+      final gameState = core.GameState.create(firstRoundStarter: 0, 
         gameId: gameId,
         playerIds: [user1Id, user2Id],
       );
@@ -172,7 +172,7 @@ void main() {
 
     test('lay off fails during final turn phase', () async {
       // Create a game state and simulate going out scenario
-      final gameState = core.GameState.create(
+      final gameState = core.GameState.create(firstRoundStarter: 0, 
         gameId: 'test-game-final',
         playerIds: ['player1', 'player2'],
       );
@@ -215,7 +215,7 @@ void main() {
     });
 
     test('lay off with multiple cards extends meld correctly', () async {
-      final gameState = core.GameState.create(
+      final gameState = core.GameState.create(firstRoundStarter: 0, 
         gameId: 'test-game-multi',
         playerIds: ['player1', 'player2'],
       );
@@ -254,7 +254,7 @@ void main() {
     });
 
     test('cannot lay off to non-existent meld', () async {
-      final gameState = core.GameState.create(
+      final gameState = core.GameState.create(firstRoundStarter: 0, 
         gameId: 'test-game-invalid',
         playerIds: ['player1', 'player2'],
       );
@@ -283,7 +283,7 @@ void main() {
     });
 
     test('cannot lay off with cards that do not extend meld', () async {
-      final gameState = core.GameState.create(
+      final gameState = core.GameState.create(firstRoundStarter: 0, 
         gameId: 'test-game-invalid-cards',
         playerIds: ['player1', 'player2'],
       );

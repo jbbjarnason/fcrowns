@@ -9,7 +9,7 @@ void main() {
       required int roundNumber,
       required List<Card> playerHand,
     }) {
-      final game = GameState.create(
+      final game = GameState.create(firstRoundStarter: 0, 
         gameId: 'test',
         playerIds: ['p1', 'p2'],
         random: Random(42),
@@ -345,7 +345,7 @@ void main() {
 
   group('Invalid Meld Creation Scenarios', () {
     GameState setupGame(List<Card> hand) {
-      final game = GameState.create(
+      final game = GameState.create(firstRoundStarter: 0, 
         gameId: 'test',
         playerIds: ['p1', 'p2'],
         random: Random(42),
@@ -474,7 +474,7 @@ void main() {
 
   group('Go Out with Melds', () {
     GameState setupGameForGoOut(int roundNumber, List<Card> hand) {
-      final game = GameState.create(
+      final game = GameState.create(firstRoundStarter: 0, 
         gameId: 'test',
         playerIds: ['p1', 'p2'],
         random: Random(42),
@@ -793,7 +793,7 @@ void main() {
     // Five Crowns uses two full decks, so duplicate cards are possible
 
     GameState setupGame(List<Card> hand) {
-      final game = GameState.create(
+      final game = GameState.create(firstRoundStarter: 0, 
         gameId: 'test',
         playerIds: ['p1', 'p2'],
         random: Random(42),
@@ -973,7 +973,7 @@ void main() {
 
   group('Lay Off to Other Players Melds', () {
     GameState setupTwoPlayerGame() {
-      final game = GameState.create(
+      final game = GameState.create(firstRoundStarter: 0, 
         gameId: 'test',
         playerIds: ['p1', 'p2'],
         random: Random(42),
