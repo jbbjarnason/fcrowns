@@ -128,7 +128,10 @@ class LiveKitProvider extends ChangeNotifier with WidgetsBindingObserver {
       return false;
     }
 
-    debugPrint('[LiveKit] Reconnecting...');
+    // Preserve user's mute preferences before reconnecting
+    final wasAudioEnabled = _audioEnabled;
+    final wasSpeakerEnabled = _speakerEnabled;
+    debugPrint('[LiveKit] Reconnecting... preserving audio=$wasAudioEnabled, speaker=$wasSpeakerEnabled');
 
     // Disconnect existing room if any
     try {
@@ -141,8 +144,22 @@ class LiveKitProvider extends ChangeNotifier with WidgetsBindingObserver {
     _room = null;
     _localParticipant = null;
 
-    // Reconnect
+    // Reconnect (this will enable mic by default)
     await connect(api: _api!, gameId: _gameId!);
+
+    // Restore user's mute preferences
+    if (isConnected) {
+      if (!wasAudioEnabled) {
+        debugPrint('[LiveKit] Restoring muted mic state');
+        await muteAudio();
+      }
+      if (!wasSpeakerEnabled) {
+        debugPrint('[LiveKit] Restoring muted speaker state');
+        // Re-apply speaker mute by toggling twice (to trigger unsubscribe)
+        _speakerEnabled = true; // Reset so toggle will disable
+        await toggleSpeaker();
+      }
+    }
 
     return isConnected;
   }
