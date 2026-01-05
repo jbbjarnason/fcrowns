@@ -10,6 +10,7 @@ import '../theme/app_theme.dart';
 import '../widgets/card_widget.dart';
 import '../widgets/tutorial_overlay.dart';
 import '../widgets/livekit_controls.dart';
+import '../utils/hand_slot_manager.dart';
 
 class GameScreen extends ConsumerStatefulWidget {
   final String gameId;
@@ -44,7 +45,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
   // Hand reordering - tracks display order using card strings (null = empty slot)
   // This preserves order across draws/discards since we track by card value, not index
-  final List<String?> _handSlots = [];
+  final HandSlotManager _handSlotManager = HandSlotManager();
 
   @override
   void initState() {
@@ -103,56 +104,10 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     }
   }
 
-  /// Update hand slots when hand changes
-  /// Preserves user's custom ordering and empty slots
-  void _updateHandSlots(List<String> hand) {
-    final handSet = hand.toSet();
-
-    // Track which cards we've placed
-    final placedCards = <String>{};
-
-    // Replace cards that are no longer in hand with null (empty slot)
-    // Keep cards that are still in hand
-    for (int i = 0; i < _handSlots.length; i++) {
-      final card = _handSlots[i];
-      if (card != null) {
-        if (handSet.contains(card) && !placedCards.contains(card)) {
-          placedCards.add(card);
-        } else {
-          _handSlots[i] = null; // Card was discarded/laid or duplicate
-        }
-      }
-    }
-
-    // Add new cards (drawn cards) to empty slots first, then append
-    for (final card in hand) {
-      if (!placedCards.contains(card)) {
-        // Try to find an empty slot
-        final emptyIndex = _handSlots.indexOf(null);
-        if (emptyIndex != -1) {
-          _handSlots[emptyIndex] = card;
-        } else {
-          _handSlots.add(card);
-        }
-        placedCards.add(card);
-      }
-    }
-
-    // Trim trailing empty slots (but keep internal ones)
-    while (_handSlots.isNotEmpty && _handSlots.last == null) {
-      _handSlots.removeLast();
-    }
-  }
-
   /// Get list of slot contents (card index or -1 for empty)
-  /// Returns list where each element is either a hand index or -1 (empty slot)
+  /// Delegates to HandSlotManager for proper duplicate card handling
   List<int> _getHandSlotContents(List<String> hand) {
-    _updateHandSlots(hand);
-
-    return _handSlots.map((card) {
-      if (card == null) return -1;
-      return hand.indexOf(card);
-    }).toList();
+    return _handSlotManager.getSlotContents(hand);
   }
 
   /// Get the wild rank name for a given round number
@@ -179,26 +134,22 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   void _swapSlots(int fromSlotIndex, int toSlotIndex) {
     if (fromSlotIndex == toSlotIndex) return;
     setState(() {
-      final temp = _handSlots[fromSlotIndex];
-      _handSlots[fromSlotIndex] = _handSlots[toSlotIndex];
-      _handSlots[toSlotIndex] = temp;
+      _handSlotManager.swapSlots(fromSlotIndex, toSlotIndex);
     });
   }
 
   /// Add an empty slot after the given index
   void _addEmptySlotAfter(int slotIndex) {
     setState(() {
-      _handSlots.insert(slotIndex + 1, null);
+      _handSlotManager.addEmptySlotAfter(slotIndex);
     });
   }
 
   /// Remove empty slot at index (only if empty)
   void _removeEmptySlot(int slotIndex) {
-    if (slotIndex >= 0 && slotIndex < _handSlots.length && _handSlots[slotIndex] == null) {
-      setState(() {
-        _handSlots.removeAt(slotIndex);
-      });
-    }
+    setState(() {
+      _handSlotManager.removeEmptySlot(slotIndex);
+    });
   }
 
   /// Reconnect WebSocket and LiveKit after error dismissal
@@ -1094,7 +1045,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                 tooltip: 'Add empty slot',
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
-                onPressed: () => _addEmptySlotAfter(_handSlots.length - 1),
+                onPressed: () => _addEmptySlotAfter(_handSlotManager.length - 1),
               ),
               const Spacer(),
               // Wild card indicator
