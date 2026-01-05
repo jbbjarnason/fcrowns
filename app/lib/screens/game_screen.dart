@@ -4,6 +4,7 @@ import 'package:beamer/beamer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fivecrowns_core/fivecrowns_core.dart' show MeldType;
+import 'package:wakelock_plus/wakelock_plus.dart';
 import '../main.dart' show themeProvider;
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
@@ -53,6 +54,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     // Store references before any async operations
     _game = ref.read(gameProvider);
     _liveKit = ref.read(liveKitProvider);
+
+    // Keep screen on during game
+    WakelockPlus.enable();
 
     // Start timer to check for nudge eligibility
     _nudgeTimer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -193,6 +197,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   @override
   void dispose() {
     _nudgeTimer?.cancel();
+    WakelockPlus.disable();
     _game.leaveGame();
     _liveKit.disconnect();
     super.dispose();
