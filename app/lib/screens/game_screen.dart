@@ -224,7 +224,13 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   }
 
   void _createMeldFromSelection() {
-    if (_selectedCardIndices.length >= 3) {
+    final game = ref.read(gameProvider);
+    final hand = game.hand;
+    final cardsInMelds = _meldIndices.expand((m) => m).length;
+    final cardsRemaining = hand.length - cardsInMelds - _selectedCardIndices.length;
+
+    // Must leave at least 1 card to discard
+    if (_selectedCardIndices.length >= 3 && cardsRemaining >= 1) {
       setState(() {
         _meldIndices.add(_selectedCardIndices.toList());
         _selectedCardIndices.clear();
@@ -280,6 +286,26 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       game.layMelds(melds);
       _clearMelds();
     }
+  }
+
+  /// Discard a card, automatically laying any valid staged melds first
+  void _discardWithAutoLay(String card) {
+    final game = ref.read(gameProvider);
+
+    // Auto-lay any valid staged melds before discarding
+    if (_meldIndices.isNotEmpty) {
+      final melds = _getMelds(game.hand);
+      // Only lay melds that are valid
+      final validMelds = melds.where((m) => game.isValidMeld(m)).toList();
+      if (validMelds.isNotEmpty) {
+        game.layMelds(validMelds);
+      }
+      _clearMelds();
+    }
+
+    game.discard(card);
+    _selectedCardIndices.clear();
+    setState(() {});
   }
 
   void _goOut(String discardCard) {
@@ -397,6 +423,15 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   @override
   Widget build(BuildContext context) {
     final game = ref.watch(gameProvider);
+
+    // Clear staged melds when it's no longer our turn (prevents stale UI)
+    if (!game.isMyTurn && _meldIndices.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _clearMelds();
+        }
+      });
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -1221,7 +1256,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                         },
                         onDoubleTap: () {
                           if (game.isMyTurn && game.turnPhase == 'mustDiscard' && !game.isFinalTurnPhase) {
-                            game.discard(card);
+                            _discardWithAutoLay(card);
                           }
                         },
                         child: CardWidget(
@@ -1248,13 +1283,18 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     final hand = game.hand as List<String>;
     final selectedCards = _getSelectedCards(hand);
     final melds = _getMelds(hand);
+    final cardsInMelds = _meldIndices.expand((m) => m).length;
+    final cardsRemainingAfterMeld = hand.length - cardsInMelds - _selectedCardIndices.length;
 
     return Container(
       padding: const EdgeInsets.all(16),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          if (_selectedCardIndices.length >= 3 && game.isValidMeld(selectedCards))
+          // Only show Create Meld if it leaves at least 1 card to discard
+          if (_selectedCardIndices.length >= 3 &&
+              game.isValidMeld(selectedCards) &&
+              cardsRemainingAfterMeld >= 1)
             ElevatedButton(
               onPressed: _createMeldFromSelection,
               child: const Text('Create Meld'),
@@ -1283,9 +1323,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                 if (game.canGoOut(melds, card)) {
                   _goOut(card);
                 } else {
-                  game.discard(card);
-                  _selectedCardIndices.clear();
-                  setState(() {});
+                  _discardWithAutoLay(card);
                 }
               },
               style: ElevatedButton.styleFrom(
@@ -1296,9 +1334,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           if (_selectedCardIndices.length == 1 && game.isFinalTurnPhase)
             ElevatedButton(
               onPressed: () {
-                game.discard(selectedCards.first);
-                _selectedCardIndices.clear();
-                setState(() {});
+                _discardWithAutoLay(selectedCards.first);
               },
               child: const Text('Discard'),
             ),
