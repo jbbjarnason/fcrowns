@@ -75,8 +75,8 @@ void main() {
         // Wait for games screen to appear
         await tester.pumpAndSettle(const Duration(seconds: 2));
 
-        // Should be on games screen (Five Crowns is app title)
-        expect(find.text('Five Crowns'), findsOneWidget);
+        // Should be on games screen (Five Suits Rummy is app title)
+        expect(find.text('Five Suits Rummy'), findsOneWidget);
         print('Receiver logged in and on Games screen');
         print('');
         print('Waiting for real-time notifications...');
@@ -213,7 +213,7 @@ void main() {
         }
 
         await tester.pumpAndSettle(const Duration(seconds: 2));
-        expect(find.text('Five Crowns'), findsOneWidget);
+        expect(find.text('Five Suits Rummy'), findsOneWidget);
         print('Sender logged in');
 
         // Wait a moment for WebSocket to connect

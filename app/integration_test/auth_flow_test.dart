@@ -15,7 +15,7 @@ void main() {
       await tester.pumpAndSettle(const Duration(seconds: 2));
 
       // Verify login screen elements
-      expect(find.text('Five Crowns'), findsOneWidget);
+      expect(find.text('Five Suits Rummy'), findsOneWidget);
       expect(find.text('Login'), findsWidgets);  // May be in button and/or text
       expect(find.text("Don't have an account? Sign up"), findsOneWidget);
     });
@@ -108,7 +108,7 @@ void main() {
       await tester.pumpAndSettle(const Duration(seconds: 5));
 
       // Should navigate to games screen
-      expect(find.text('Five Crowns'), findsOneWidget);
+      expect(find.text('Five Suits Rummy'), findsOneWidget);
     });
 
     testWidgets('should reject login with wrong password', (tester) async {

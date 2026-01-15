@@ -21,7 +21,7 @@ void main() {
       await tester.pumpAndSettle(const Duration(seconds: 2));
 
       // Verify login screen elements
-      expect(find.text('Five Crowns'), findsOneWidget);
+      expect(find.text('Five Suits Rummy'), findsOneWidget);
       expect(find.text("Don't have an account? Sign up"), findsOneWidget);
 
       // Navigate to signup

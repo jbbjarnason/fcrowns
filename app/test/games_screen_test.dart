@@ -85,7 +85,7 @@ void main() {
       MaterialApp(
         theme: AppTheme.darkTheme,
         home: Scaffold(
-          appBar: AppBar(title: const Text('Five Crowns')),
+          appBar: AppBar(title: const Text('Five Suits Rummy')),
           body: Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -117,7 +117,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verify all elements are present
-    expect(find.text('Five Crowns'), findsOneWidget);
+    expect(find.text('Five Suits Rummy'), findsOneWidget);
     expect(find.text('No games yet'), findsOneWidget);
     expect(find.text('Create Game'), findsOneWidget);
     expect(find.text('New Game'), findsOneWidget);

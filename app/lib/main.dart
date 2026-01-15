@@ -108,7 +108,7 @@ class _FiveCrownsAppState extends ConsumerState<FiveCrownsApp> {
     return NudgeShakeWrapper(
       key: nudgeShakeKey,
       child: MaterialApp.router(
-        title: 'Five Crowns',
+        title: 'Five Suits Rummy',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,

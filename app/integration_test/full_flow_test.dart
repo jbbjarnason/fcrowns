@@ -20,7 +20,7 @@ void main() {
     await tester.pumpAndSettle(const Duration(seconds: 3));
 
     // Check current state - might already be logged in from previous run
-    final hasMyGames = find.text('Five Crowns').evaluate().isNotEmpty;
+    final hasMyGames = find.text('Five Suits Rummy').evaluate().isNotEmpty;
     final hasNoGamesYet = find.text('No games yet').evaluate().isNotEmpty;
     final hasCreateGame = find.text('Create Game').evaluate().isNotEmpty;
     final isOnGamesScreen = hasMyGames || hasNoGamesYet || hasCreateGame;
@@ -28,7 +28,7 @@ void main() {
     final hasSignupLink = find.text("Don't have an account? Sign up").evaluate().isNotEmpty;
 
     print('Initial state:');
-    print('  On games screen: $isOnGamesScreen (Five Crowns: $hasMyGames, No games: $hasNoGamesYet, Create: $hasCreateGame)');
+    print('  On games screen: $isOnGamesScreen (Five Suits Rummy: $hasMyGames, No games: $hasNoGamesYet, Create: $hasCreateGame)');
     print('  On login screen: $isOnLoginScreen');
     print('  Has signup link: $hasSignupLink');
 
@@ -135,8 +135,8 @@ void main() {
       await tester.tap(find.widgetWithText(ElevatedButton, 'Login'));
       await tester.pumpAndSettle(const Duration(seconds: 5));
 
-      // Should be on games screen (title is "Five Crowns")
-      if (find.text('Five Crowns').evaluate().isNotEmpty &&
+      // Should be on games screen (title is "Five Suits Rummy")
+      if (find.text('Five Suits Rummy').evaluate().isNotEmpty &&
           find.text('Login').evaluate().isEmpty) {
         print('  ✓ Login successful, on games screen');
         await _testGamesScreen(tester);

@@ -253,7 +253,7 @@ class _GamesScreenState extends ConsumerState<GamesScreen> {
               height: 32,
             ),
             const SizedBox(width: 8),
-            const Text('Five Crowns'),
+            const Text('Five Suits Rummy'),
           ],
         ),
         actions: [

@@ -116,7 +116,7 @@ class GamesLocation extends BeamLocation<BeamState> {
     if (gameId != null && state.uri.path.endsWith('/play')) {
       pages.add(BeamPage(
         key: ValueKey('game-play-$gameId'),
-        title: 'Five Crowns',
+        title: 'Five Suits Rummy',
         child: GameScreen(gameId: gameId),
       ));
     }
