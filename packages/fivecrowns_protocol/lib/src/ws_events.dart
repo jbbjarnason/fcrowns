@@ -16,6 +16,12 @@ abstract class WsEvent {
       'evt.error' => EvtError.fromJson(json),
       'evt.notification' => EvtNotification.fromJson(json),
       'evt.game_deleted' => EvtGameDeleted.fromJson(json),
+      'evt.player_connected' => EvtPlayerConnected.fromJson(json),
+      'evt.player_disconnected' => EvtPlayerDisconnected.fromJson(json),
+      'evt.kick_vote_started' => EvtKickVoteStarted.fromJson(json),
+      'evt.kick_vote_update' => EvtKickVoteUpdate.fromJson(json),
+      'evt.kick_vote_result' => EvtKickVoteResult.fromJson(json),
+      'evt.player_kicked' => EvtPlayerKicked.fromJson(json),
       _ => throw ArgumentError('Unknown event type: $type'),
     };
   }
@@ -56,6 +62,7 @@ class PlayerStateDto {
   final List<String>? hand;
   final String? username;
   final String? displayName;
+  final bool isConnected;
 
   PlayerStateDto({
     required this.id,
@@ -66,6 +73,7 @@ class PlayerStateDto {
     this.hand,
     this.username,
     this.displayName,
+    this.isConnected = false,
   });
 
   factory PlayerStateDto.fromJson(Map<String, dynamic> json) => PlayerStateDto(
@@ -81,6 +89,7 @@ class PlayerStateDto {
             : null,
         username: json['username'] as String?,
         displayName: json['displayName'] as String?,
+        isConnected: json['isConnected'] as bool? ?? false,
       );
 
   Map<String, dynamic> toJson() {
@@ -90,6 +99,7 @@ class PlayerStateDto {
       'score': score,
       'handCount': handCount,
       'melds': melds,
+      'isConnected': isConnected,
     };
     if (hand != null) {
       result['hand'] = hand;
@@ -408,5 +418,248 @@ class EvtGameDeleted implements WsEvent {
         'gameId': gameId,
         'deletedByUserId': deletedByUserId,
         'deletedByUsername': deletedByUsername,
+      };
+}
+
+/// Player connected to game room event
+class EvtPlayerConnected implements WsEvent {
+  @override
+  String get type => 'evt.player_connected';
+  @override
+  int? get serverSeq => null;
+  @override
+  final String gameId;
+
+  final String odooUserId;
+  final String displayName;
+
+  EvtPlayerConnected({
+    required this.gameId,
+    required this.odooUserId,
+    required this.displayName,
+  });
+
+  factory EvtPlayerConnected.fromJson(Map<String, dynamic> json) =>
+      EvtPlayerConnected(
+        gameId: json['gameId'] as String,
+        odooUserId: json['userId'] as String,
+        displayName: json['displayName'] as String? ?? '',
+      );
+
+  @override
+  Map<String, dynamic> toJson() => {
+        'type': type,
+        'gameId': gameId,
+        'userId': odooUserId,
+        'displayName': displayName,
+      };
+}
+
+/// Player disconnected from game room event
+class EvtPlayerDisconnected implements WsEvent {
+  @override
+  String get type => 'evt.player_disconnected';
+  @override
+  int? get serverSeq => null;
+  @override
+  final String gameId;
+
+  final String odooUserId;
+  final String displayName;
+
+  EvtPlayerDisconnected({
+    required this.gameId,
+    required this.odooUserId,
+    required this.displayName,
+  });
+
+  factory EvtPlayerDisconnected.fromJson(Map<String, dynamic> json) =>
+      EvtPlayerDisconnected(
+        gameId: json['gameId'] as String,
+        odooUserId: json['userId'] as String,
+        displayName: json['displayName'] as String? ?? '',
+      );
+
+  @override
+  Map<String, dynamic> toJson() => {
+        'type': type,
+        'gameId': gameId,
+        'userId': odooUserId,
+        'displayName': displayName,
+      };
+}
+
+/// Kick vote started event - sent to all players except target
+class EvtKickVoteStarted implements WsEvent {
+  @override
+  String get type => 'evt.kick_vote_started';
+  @override
+  int? get serverSeq => null;
+  @override
+  final String gameId;
+
+  final String voteId;
+  final String targetUserId;
+  final String targetDisplayName;
+  final String initiatorUserId;
+  final String initiatorDisplayName;
+  final DateTime expiresAt;
+  final int votesNeeded;
+
+  EvtKickVoteStarted({
+    required this.gameId,
+    required this.voteId,
+    required this.targetUserId,
+    required this.targetDisplayName,
+    required this.initiatorUserId,
+    required this.initiatorDisplayName,
+    required this.expiresAt,
+    required this.votesNeeded,
+  });
+
+  factory EvtKickVoteStarted.fromJson(Map<String, dynamic> json) =>
+      EvtKickVoteStarted(
+        gameId: json['gameId'] as String,
+        voteId: json['voteId'] as String,
+        targetUserId: json['targetUserId'] as String,
+        targetDisplayName: json['targetDisplayName'] as String,
+        initiatorUserId: json['initiatorUserId'] as String,
+        initiatorDisplayName: json['initiatorDisplayName'] as String,
+        expiresAt: DateTime.parse(json['expiresAt'] as String),
+        votesNeeded: json['votesNeeded'] as int,
+      );
+
+  @override
+  Map<String, dynamic> toJson() => {
+        'type': type,
+        'gameId': gameId,
+        'voteId': voteId,
+        'targetUserId': targetUserId,
+        'targetDisplayName': targetDisplayName,
+        'initiatorUserId': initiatorUserId,
+        'initiatorDisplayName': initiatorDisplayName,
+        'expiresAt': expiresAt.toIso8601String(),
+        'votesNeeded': votesNeeded,
+      };
+}
+
+/// Kick vote update - sent when a player votes
+class EvtKickVoteUpdate implements WsEvent {
+  @override
+  String get type => 'evt.kick_vote_update';
+  @override
+  int? get serverSeq => null;
+  @override
+  final String gameId;
+
+  final String voteId;
+  final int votesFor;
+  final int votesAgainst;
+  final int votesNeeded;
+
+  EvtKickVoteUpdate({
+    required this.gameId,
+    required this.voteId,
+    required this.votesFor,
+    required this.votesAgainst,
+    required this.votesNeeded,
+  });
+
+  factory EvtKickVoteUpdate.fromJson(Map<String, dynamic> json) =>
+      EvtKickVoteUpdate(
+        gameId: json['gameId'] as String,
+        voteId: json['voteId'] as String,
+        votesFor: json['votesFor'] as int,
+        votesAgainst: json['votesAgainst'] as int,
+        votesNeeded: json['votesNeeded'] as int,
+      );
+
+  @override
+  Map<String, dynamic> toJson() => {
+        'type': type,
+        'gameId': gameId,
+        'voteId': voteId,
+        'votesFor': votesFor,
+        'votesAgainst': votesAgainst,
+        'votesNeeded': votesNeeded,
+      };
+}
+
+/// Kick vote result - sent when vote concludes (passed or failed)
+class EvtKickVoteResult implements WsEvent {
+  @override
+  String get type => 'evt.kick_vote_result';
+  @override
+  int? get serverSeq => null;
+  @override
+  final String gameId;
+
+  final String voteId;
+  final bool passed;
+  final String targetUserId;
+  final String targetDisplayName;
+
+  EvtKickVoteResult({
+    required this.gameId,
+    required this.voteId,
+    required this.passed,
+    required this.targetUserId,
+    required this.targetDisplayName,
+  });
+
+  factory EvtKickVoteResult.fromJson(Map<String, dynamic> json) =>
+      EvtKickVoteResult(
+        gameId: json['gameId'] as String,
+        voteId: json['voteId'] as String,
+        passed: json['passed'] as bool,
+        targetUserId: json['targetUserId'] as String,
+        targetDisplayName: json['targetDisplayName'] as String,
+      );
+
+  @override
+  Map<String, dynamic> toJson() => {
+        'type': type,
+        'gameId': gameId,
+        'voteId': voteId,
+        'passed': passed,
+        'targetUserId': targetUserId,
+        'targetDisplayName': targetDisplayName,
+      };
+}
+
+/// Player kicked event - sent to the kicked player
+class EvtPlayerKicked implements WsEvent {
+  @override
+  String get type => 'evt.player_kicked';
+  @override
+  int? get serverSeq => null;
+  @override
+  final String gameId;
+
+  final String odooUserId;
+  final String displayName;
+  final String reason;
+
+  EvtPlayerKicked({
+    required this.gameId,
+    required this.odooUserId,
+    required this.displayName,
+    required this.reason,
+  });
+
+  factory EvtPlayerKicked.fromJson(Map<String, dynamic> json) => EvtPlayerKicked(
+        gameId: json['gameId'] as String,
+        odooUserId: json['userId'] as String,
+        displayName: json['displayName'] as String,
+        reason: json['reason'] as String? ?? 'Voted out by other players',
+      );
+
+  @override
+  Map<String, dynamic> toJson() => {
+        'type': type,
+        'gameId': gameId,
+        'userId': odooUserId,
+        'displayName': displayName,
+        'reason': reason,
       };
 }

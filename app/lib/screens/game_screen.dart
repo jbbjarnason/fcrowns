@@ -7,6 +7,7 @@ import 'package:fivecrowns_core/fivecrowns_core.dart' show MeldType;
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../main.dart' show themeProvider;
 import '../providers/providers.dart';
+import '../services/websocket_service.dart' show WsConnectionState;
 import '../theme/app_theme.dart';
 import '../widgets/card_widget.dart';
 import '../widgets/tutorial_overlay.dart';
@@ -420,6 +421,124 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     );
   }
 
+  void _showPlayersDialog(GameProvider game) {
+    final myId = ref.read(authProvider).userId;
+    final players = game.players;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: const [
+            Icon(Icons.people_rounded),
+            SizedBox(width: 8),
+            Text('Players'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: players.map((player) {
+            final playerId = player['id'] as String;
+            final isMe = playerId == myId;
+            final isConnected = game.playerConnected[playerId] ?? false;
+            final displayName = player['displayName'] as String? ??
+                player['username'] as String? ??
+                'Player ${(player['seat'] as int) + 1}';
+            final canKick = game.canInitiateKickVote(playerId);
+
+            return Container(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+              margin: const EdgeInsets.only(bottom: 4),
+              decoration: BoxDecoration(
+                color: isMe ? AppTheme.primary.withValues(alpha: 0.1) : null,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  // Connection status indicator
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: isConnected ? Colors.green : Colors.grey,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isMe ? 'You' : displayName,
+                          style: TextStyle(
+                            fontWeight: isMe ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                        Text(
+                          isConnected ? 'Online' : 'Offline',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isConnected ? Colors.green : Colors.grey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Kick button (only for other players during active game with 3+ players)
+                  if (!isMe && canKick)
+                    IconButton(
+                      icon: const Icon(Icons.person_remove, size: 20),
+                      tooltip: 'Initiate kick vote',
+                      color: Colors.red,
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _confirmKickVote(playerId, displayName);
+                      },
+                    ),
+                ],
+              ),
+            );
+          }).toList(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmKickVote(String targetUserId, String displayName) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Initiate Kick Vote'),
+        content: Text(
+          'Are you sure you want to start a vote to kick $displayName from the game?\n\n'
+          'All other players must vote YES for the kick to succeed.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              final game = ref.read(gameProvider);
+              game.initiateKickVote(targetUserId);
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Start Vote'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final game = ref.watch(gameProvider);
@@ -470,6 +589,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
             icon: const Icon(Icons.more_vert),
             onSelected: (value) {
               switch (value) {
+                case 'players':
+                  _showPlayersDialog(game);
+                  break;
                 case 'help':
                   setState(() => _showTutorial = true);
                   break;
@@ -479,6 +601,16 @@ class _GameScreenState extends ConsumerState<GameScreen> {
               }
             },
             itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'players',
+                child: Row(
+                  children: const [
+                    Icon(Icons.people_outline, size: 20),
+                    SizedBox(width: 8),
+                    Text('Players'),
+                  ],
+                ),
+              ),
               PopupMenuItem(
                 value: 'help',
                 child: Row(
@@ -587,9 +719,204 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                 roundNumber: game.roundNumber,
                 onDismiss: () => setState(() => _showTutorial = false),
               ),
+            // Kick vote dialog overlay
+            if (game.shouldShowKickVoteDialog)
+              _buildKickVoteOverlay(game),
+            // Kicked from game overlay
+            if (game.wasKicked)
+              _buildKickedOverlay(game),
+            // Connection lost overlay
+            _buildConnectionOverlay(),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildKickVoteOverlay(GameProvider game) {
+    final vote = game.activeKickVote;
+    if (vote == null) return const SizedBox.shrink();
+
+    return Container(
+      color: Colors.black.withValues(alpha: 0.7),
+      child: Center(
+        child: Card(
+          margin: const EdgeInsets.all(32),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.how_to_vote, size: 48, color: Colors.orange),
+                const SizedBox(height: 16),
+                Text(
+                  'Vote to Kick',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '${vote.initiatorDisplayName} wants to kick ${vote.targetDisplayName}',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Votes: ${vote.votesFor}/${vote.votesNeeded} needed',
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 8),
+                StreamBuilder(
+                  stream: Stream.periodic(const Duration(seconds: 1)),
+                  builder: (context, _) {
+                    final remaining = vote.timeRemaining;
+                    final seconds = remaining.inSeconds.clamp(0, 60);
+                    return Text(
+                      'Time remaining: ${seconds}s',
+                      style: TextStyle(
+                        color: seconds < 10 ? Colors.red : null,
+                        fontWeight: seconds < 10 ? FontWeight.bold : null,
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: () => game.voteOnKick(false),
+                      icon: const Icon(Icons.close),
+                      label: const Text('Keep'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    ElevatedButton.icon(
+                      onPressed: () => game.voteOnKick(true),
+                      icon: const Icon(Icons.person_remove),
+                      label: const Text('Kick'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildKickedOverlay(GameProvider game) {
+    return Container(
+      color: Colors.black.withValues(alpha: 0.85),
+      child: Center(
+        child: Card(
+          margin: const EdgeInsets.all(32),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.person_off, size: 64, color: Colors.red),
+                const SizedBox(height: 16),
+                Text(
+                  'You Were Kicked',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  game.kickReason ?? 'The other players voted to remove you from the game.',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () {
+                    game.clearKickedStatus();
+                    game.leaveGame();
+                    context.beamToNamed('/games');
+                  },
+                  child: const Text('Return to Games'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildConnectionOverlay() {
+    final ws = ref.watch(wsServiceProvider);
+
+    return StreamBuilder<WsConnectionState>(
+      stream: ws.connectionStateStream,
+      initialData: ws.connectionState,
+      builder: (context, snapshot) {
+        final state = snapshot.data ?? WsConnectionState.disconnected;
+
+        if (state == WsConnectionState.connected) {
+          return const SizedBox.shrink();
+        }
+
+        return Container(
+          color: Colors.black.withValues(alpha: 0.8),
+          child: Center(
+            child: Card(
+              margin: const EdgeInsets.all(32),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (state == WsConnectionState.reconnecting)
+                      const CircularProgressIndicator()
+                    else
+                      const Icon(Icons.wifi_off, size: 48, color: Colors.orange),
+                    const SizedBox(height: 16),
+                    Text(
+                      state == WsConnectionState.reconnecting
+                          ? 'Reconnecting...'
+                          : 'Connection Lost',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      state == WsConnectionState.reconnecting
+                          ? 'Please wait while we reconnect to the server.'
+                          : 'Unable to connect to the server.',
+                      textAlign: TextAlign.center,
+                    ),
+                    if (state == WsConnectionState.disconnected) ...[
+                      const SizedBox(height: 24),
+                      ElevatedButton.icon(
+                        onPressed: _reconnectAfterError,
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Reconnect'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primary,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 

@@ -7,7 +7,7 @@ import 'package:fivecrowns_protocol/fivecrowns_protocol.dart';
 
 typedef WsEventHandler = void Function(dynamic event);
 
-enum ConnectionState { disconnected, connecting, connected, reconnecting }
+enum WsConnectionState { disconnected, connecting, connected, reconnecting }
 
 class WebSocketService {
   final String wsUrl;
@@ -17,12 +17,12 @@ class WebSocketService {
   final _eventController = StreamController<WsEvent>.broadcast();
   Stream<WsEvent> get events => _eventController.stream;
 
-  final _connectionStateController = StreamController<ConnectionState>.broadcast();
-  Stream<ConnectionState> get connectionStateStream => _connectionStateController.stream;
+  final _connectionStateController = StreamController<WsConnectionState>.broadcast();
+  Stream<WsConnectionState> get connectionStateStream => _connectionStateController.stream;
 
-  ConnectionState _connectionState = ConnectionState.disconnected;
-  ConnectionState get connectionState => _connectionState;
-  bool get isConnected => _connectionState == ConnectionState.connected;
+  WsConnectionState _connectionState = WsConnectionState.disconnected;
+  WsConnectionState get connectionState => _connectionState;
+  bool get isConnected => _connectionState == WsConnectionState.connected;
 
   bool _authenticated = false;
   bool get isAuthenticated => _authenticated;
@@ -40,7 +40,7 @@ class WebSocketService {
 
   int _nextSeq() => ++_clientSeq;
 
-  void _setConnectionState(ConnectionState state) {
+  void _setConnectionState(WsConnectionState state) {
     _connectionState = state;
     _connectionStateController.add(state);
   }
@@ -52,14 +52,14 @@ class WebSocketService {
     _intentionalDisconnect = false;
     _reconnectAttempts = 0;
     _authCompleter = Completer<void>();
-    _setConnectionState(ConnectionState.connecting);
+    _setConnectionState(WsConnectionState.connecting);
 
     await _connectInternal();
     // Wait for authentication to complete
     await _authCompleter!.future.timeout(
       const Duration(seconds: 10),
       onTimeout: () {
-        _setConnectionState(ConnectionState.disconnected);
+        _setConnectionState(WsConnectionState.disconnected);
         throw Exception('WebSocket authentication timeout');
       },
     );
@@ -83,7 +83,7 @@ class WebSocketService {
       _sendRaw(CmdHello(jwt: _accessToken!, clientSeq: _nextSeq()).toJson());
     } catch (e) {
       debugPrint('[WS] Connection error: $e');
-      _setConnectionState(ConnectionState.disconnected);
+      _setConnectionState(WsConnectionState.disconnected);
       _authCompleter?.completeError(e);
       _scheduleReconnect();
     }
@@ -101,7 +101,7 @@ class WebSocketService {
       if (event is EvtHello) {
         _authenticated = true;
         _reconnectAttempts = 0; // Reset on successful connection
-        _setConnectionState(ConnectionState.connected);
+        _setConnectionState(WsConnectionState.connected);
         debugPrint('[WS] Authenticated as: ${event.userId}');
         if (_authCompleter != null && !_authCompleter!.isCompleted) {
           _authCompleter?.complete();
@@ -118,7 +118,7 @@ class WebSocketService {
   void _onError(Object error) {
     debugPrint('[WS] WebSocket error: $error');
     _authenticated = false;
-    _setConnectionState(ConnectionState.disconnected);
+    _setConnectionState(WsConnectionState.disconnected);
     _eventController.addError(error);
     _scheduleReconnect();
   }
@@ -126,7 +126,7 @@ class WebSocketService {
   void _onDone() {
     debugPrint('[WS] WebSocket closed');
     _authenticated = false;
-    _setConnectionState(ConnectionState.disconnected);
+    _setConnectionState(WsConnectionState.disconnected);
     _scheduleReconnect();
   }
 
@@ -144,7 +144,7 @@ class WebSocketService {
     _reconnectAttempts++;
 
     debugPrint('[WS] Scheduling reconnect attempt $_reconnectAttempts in ${delay}s');
-    _setConnectionState(ConnectionState.reconnecting);
+    _setConnectionState(WsConnectionState.reconnecting);
 
     _reconnectTimer = Timer(Duration(seconds: delay), () async {
       if (_accessToken != null && !_intentionalDisconnect) {
@@ -206,12 +206,29 @@ class WebSocketService {
     ).toJson());
   }
 
+  void initiateKick(String gameId, String targetUserId) {
+    _send(CmdInitiateKick(
+      gameId: gameId,
+      targetUserId: targetUserId,
+      clientSeq: _nextSeq(),
+    ).toJson());
+  }
+
+  void voteKick(String gameId, String voteId, bool approve) {
+    _send(CmdVoteKick(
+      gameId: gameId,
+      voteId: voteId,
+      approve: approve,
+      clientSeq: _nextSeq(),
+    ).toJson());
+  }
+
   Future<void> disconnect() async {
     _intentionalDisconnect = true;
     _reconnectTimer?.cancel();
     _accessToken = null;
     _authenticated = false;
-    _setConnectionState(ConnectionState.disconnected);
+    _setConnectionState(WsConnectionState.disconnected);
     await _subscription?.cancel();
     await _channel?.sink.close();
     _channel = null;

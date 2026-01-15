@@ -108,7 +108,7 @@ void main() {
       await tester.pumpAndSettle(const Duration(seconds: 5));
 
       // Should navigate to games screen
-      expect(find.text('My Games'), findsOneWidget);
+      expect(find.text('Five Crowns'), findsOneWidget);
     });
 
     testWidgets('should reject login with wrong password', (tester) async {

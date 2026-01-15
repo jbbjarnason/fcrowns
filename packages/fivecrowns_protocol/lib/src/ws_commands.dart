@@ -19,6 +19,8 @@ abstract class WsCommand {
       'cmd.goOut' => CmdGoOut.fromJson(json),
       'cmd.layOff' => CmdLayOff.fromJson(json),
       'cmd.settings.videoAutoStart' => CmdVideoAutoStart.fromJson(json),
+      'cmd.initiate_kick' => CmdInitiateKick.fromJson(json),
+      'cmd.vote_kick' => CmdVoteKick.fromJson(json),
       _ => throw ArgumentError('Unknown command type: $type'),
     };
   }
@@ -306,6 +308,70 @@ class CmdVideoAutoStart implements WsCommand {
         'type': type,
         'gameId': gameId,
         'enabled': enabled,
+        'clientSeq': clientSeq,
+      };
+}
+
+/// Command to initiate a kick vote against a player
+class CmdInitiateKick implements WsCommand {
+  @override
+  String get type => 'cmd.initiate_kick';
+  final String gameId;
+  final String targetUserId;
+  @override
+  final int clientSeq;
+
+  CmdInitiateKick({
+    required this.gameId,
+    required this.targetUserId,
+    required this.clientSeq,
+  });
+
+  factory CmdInitiateKick.fromJson(Map<String, dynamic> json) => CmdInitiateKick(
+        gameId: json['gameId'] as String,
+        targetUserId: json['targetUserId'] as String,
+        clientSeq: json['clientSeq'] as int,
+      );
+
+  @override
+  Map<String, dynamic> toJson() => {
+        'type': type,
+        'gameId': gameId,
+        'targetUserId': targetUserId,
+        'clientSeq': clientSeq,
+      };
+}
+
+/// Command to vote on an active kick vote
+class CmdVoteKick implements WsCommand {
+  @override
+  String get type => 'cmd.vote_kick';
+  final String gameId;
+  final String voteId;
+  final bool approve;
+  @override
+  final int clientSeq;
+
+  CmdVoteKick({
+    required this.gameId,
+    required this.voteId,
+    required this.approve,
+    required this.clientSeq,
+  });
+
+  factory CmdVoteKick.fromJson(Map<String, dynamic> json) => CmdVoteKick(
+        gameId: json['gameId'] as String,
+        voteId: json['voteId'] as String,
+        approve: json['approve'] as bool,
+        clientSeq: json['clientSeq'] as int,
+      );
+
+  @override
+  Map<String, dynamic> toJson() => {
+        'type': type,
+        'gameId': gameId,
+        'voteId': voteId,
+        'approve': approve,
         'clientSeq': clientSeq,
       };
 }

@@ -2,8 +2,36 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:fivecrowns_core/fivecrowns_core.dart';
 import 'package:fivecrowns_protocol/fivecrowns_protocol.dart';
-import '../services/websocket_service.dart';
+import '../services/websocket_service.dart' show WebSocketService, WsConnectionState;
 import '../services/api_service.dart';
+
+/// Tracks the state of an active kick vote
+class KickVoteState {
+  final String voteId;
+  final String targetUserId;
+  final String targetDisplayName;
+  final String initiatorUserId;
+  final String initiatorDisplayName;
+  final DateTime expiresAt;
+  final int votesNeeded;
+  int votesFor;
+  int votesAgainst;
+
+  KickVoteState({
+    required this.voteId,
+    required this.targetUserId,
+    required this.targetDisplayName,
+    required this.initiatorUserId,
+    required this.initiatorDisplayName,
+    required this.expiresAt,
+    required this.votesNeeded,
+    this.votesFor = 0,
+    this.votesAgainst = 0,
+  });
+
+  Duration get timeRemaining => expiresAt.difference(DateTime.now());
+  bool get isExpired => DateTime.now().isAfter(expiresAt);
+}
 
 class GameProvider extends ChangeNotifier {
   final WebSocketService ws;
@@ -58,6 +86,20 @@ class GameProvider extends ChangeNotifier {
   String? _error;
   String? get error => _error;
 
+  // Player connection status
+  final Map<String, bool> _playerConnected = {};
+  Map<String, bool> get playerConnected => Map.unmodifiable(_playerConnected);
+
+  // Active kick vote
+  KickVoteState? _activeKickVote;
+  KickVoteState? get activeKickVote => _activeKickVote;
+
+  // Was this player kicked?
+  bool _wasKicked = false;
+  bool get wasKicked => _wasKicked;
+  String? _kickReason;
+  String? get kickReason => _kickReason;
+
   // Game log - stores recent actions
   final List<String> _gameLog = [];
   List<String> get gameLog => _gameLog;
@@ -73,6 +115,8 @@ class GameProvider extends ChangeNotifier {
     _userId = userId;
   }
 
+  StreamSubscription? _connectionSubscription;
+
   Future<void> joinGame(String gameId) async {
     _gameId = gameId;
     _error = null;
@@ -86,6 +130,27 @@ class GameProvider extends ChangeNotifier {
         _error = e.toString();
         notifyListeners();
       });
+
+      // Listen for reconnection to auto-resync (skip initial connection)
+      _connectionSubscription?.cancel();
+      var isInitialConnection = true;
+      _connectionSubscription = ws.connectionStateStream.listen((state) {
+        if (state == WsConnectionState.connected && _gameId != null) {
+          if (isInitialConnection) {
+            isInitialConnection = false;
+            return; // Skip resync on initial connect - joinGame already sent
+          }
+          // Connection restored after disconnect - resync game state
+          ws.resync(_gameId!);
+        }
+      });
+    }
+  }
+
+  /// Force a resync with the server
+  void resync() {
+    if (_gameId != null) {
+      ws.resync(_gameId!);
     }
   }
 
@@ -97,6 +162,18 @@ class GameProvider extends ChangeNotifier {
     } else if (event is EvtError) {
       _error = '${event.code}: ${event.message}';
       notifyListeners();
+    } else if (event is EvtPlayerConnected) {
+      _handlePlayerConnected(event);
+    } else if (event is EvtPlayerDisconnected) {
+      _handlePlayerDisconnected(event);
+    } else if (event is EvtKickVoteStarted) {
+      _handleKickVoteStarted(event);
+    } else if (event is EvtKickVoteUpdate) {
+      _handleKickVoteUpdate(event);
+    } else if (event is EvtKickVoteResult) {
+      _handleKickVoteResult(event);
+    } else if (event is EvtPlayerKicked) {
+      _handlePlayerKicked(event);
     }
   }
 
@@ -239,7 +316,13 @@ class GameProvider extends ChangeNotifier {
       'melds': p.melds,
       'username': p.username,
       'displayName': p.displayName,
+      'isConnected': p.isConnected,
     }).toList();
+
+    // Update connection status map
+    for (final player in state.players) {
+      _playerConnected[player.id] = player.isConnected;
+    }
 
     // Find my melds from player list
     final myPlayer = state.players.where((p) => p.id == _userId).firstOrNull;
@@ -344,15 +427,143 @@ class GameProvider extends ChangeNotifier {
     return remainingHand.isEmpty;
   }
 
+  // ========== Connection status handlers ==========
+
+  void _handlePlayerConnected(EvtPlayerConnected event) {
+    _playerConnected[event.odooUserId] = true;
+    // Update player in list
+    for (var i = 0; i < _players.length; i++) {
+      if (_players[i]['id'] == event.odooUserId) {
+        _players[i] = Map<String, dynamic>.from(_players[i]);
+        _players[i]['isConnected'] = true;
+      }
+    }
+    _addLogEntry('${event.displayName} connected');
+    notifyListeners();
+  }
+
+  void _handlePlayerDisconnected(EvtPlayerDisconnected event) {
+    _playerConnected[event.odooUserId] = false;
+    // Update player in list
+    for (var i = 0; i < _players.length; i++) {
+      if (_players[i]['id'] == event.odooUserId) {
+        _players[i] = Map<String, dynamic>.from(_players[i]);
+        _players[i]['isConnected'] = false;
+      }
+    }
+    _addLogEntry('${event.displayName} disconnected');
+    notifyListeners();
+  }
+
+  // ========== Kick vote handlers ==========
+
+  void _handleKickVoteStarted(EvtKickVoteStarted event) {
+    _activeKickVote = KickVoteState(
+      voteId: event.voteId,
+      targetUserId: event.targetUserId,
+      targetDisplayName: event.targetDisplayName,
+      initiatorUserId: event.initiatorUserId,
+      initiatorDisplayName: event.initiatorDisplayName,
+      expiresAt: event.expiresAt,
+      votesNeeded: event.votesNeeded,
+      votesFor: 1, // Initiator's vote
+    );
+    _addLogEntry('${event.initiatorDisplayName} started vote to kick ${event.targetDisplayName}');
+    notifyListeners();
+  }
+
+  void _handleKickVoteUpdate(EvtKickVoteUpdate event) {
+    if (_activeKickVote?.voteId == event.voteId) {
+      _activeKickVote!.votesFor = event.votesFor;
+      _activeKickVote!.votesAgainst = event.votesAgainst;
+      notifyListeners();
+    }
+  }
+
+  void _handleKickVoteResult(EvtKickVoteResult event) {
+    if (event.passed) {
+      _addLogEntry('Vote passed: ${event.targetDisplayName} has been kicked');
+    } else {
+      _addLogEntry('Vote failed: ${event.targetDisplayName} stays in the game');
+    }
+    _activeKickVote = null;
+    notifyListeners();
+  }
+
+  void _handlePlayerKicked(EvtPlayerKicked event) {
+    if (event.odooUserId == _userId) {
+      _wasKicked = true;
+      _kickReason = event.reason;
+      _addLogEntry('You have been kicked from the game');
+    } else {
+      _addLogEntry('${event.displayName} was kicked from the game');
+      // Remove player from list
+      _players.removeWhere((p) => p['id'] == event.odooUserId);
+      _playerConnected.remove(event.odooUserId);
+    }
+    notifyListeners();
+  }
+
+  // ========== Kick vote actions ==========
+
+  /// Initiate a kick vote against another player
+  void initiateKickVote(String targetUserId) {
+    if (_gameId != null) {
+      ws.initiateKick(_gameId!, targetUserId);
+    }
+  }
+
+  /// Vote on an active kick vote
+  void voteOnKick(bool approve) {
+    if (_gameId != null && _activeKickVote != null) {
+      ws.voteKick(_gameId!, _activeKickVote!.voteId, approve);
+    }
+  }
+
+  /// Can this user initiate a kick vote?
+  bool canInitiateKickVote(String targetUserId) {
+    // Can't kick yourself
+    if (targetUserId == _userId) return false;
+    // Can't kick if there's an active vote
+    if (_activeKickVote != null) return false;
+    // Need at least 3 players
+    if (_players.length < 3) return false;
+    // Can only kick during active games (not in lobby or finished)
+    if (_gameStatus != 'active') return false;
+    return true;
+  }
+
+  /// Should this user see the kick vote dialog?
+  bool get shouldShowKickVoteDialog {
+    if (_activeKickVote == null) return false;
+    // Target can't vote
+    if (_activeKickVote!.targetUserId == _userId) return false;
+    // Initiator already voted
+    if (_activeKickVote!.initiatorUserId == _userId) return false;
+    return true;
+  }
+
+  /// Clear kicked status (for navigation purposes)
+  void clearKickedStatus() {
+    _wasKicked = false;
+    _kickReason = null;
+    notifyListeners();
+  }
+
   Future<void> leaveGame() async {
     if (_disposed) return;
     await _eventSubscription?.cancel();
+    await _connectionSubscription?.cancel();
     await ws.disconnect();
     _gameId = null;
     _hand.clear();
     _myMelds.clear();
     _players.clear();
     _scores.clear();
+    _playerConnected.clear();
+    _activeKickVote = null;
+    _wasKicked = false;
+    _kickReason = null;
     if (!_disposed) notifyListeners();
   }
 
@@ -370,6 +581,7 @@ class GameProvider extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _eventSubscription?.cancel();
+    _connectionSubscription?.cancel();
     super.dispose();
   }
 }

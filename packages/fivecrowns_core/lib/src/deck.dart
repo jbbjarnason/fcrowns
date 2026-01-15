@@ -77,6 +77,11 @@ class Deck {
     _drawIndex = 0;
   }
 
+  /// Adds cards to the remaining deck (for returning kicked player's cards).
+  void addCards(List<Card> cards) {
+    _cards.addAll(cards);
+  }
+
   /// Returns all remaining cards (for serialization).
   List<Card> get remainingCardsList {
     return _cards.sublist(_drawIndex);

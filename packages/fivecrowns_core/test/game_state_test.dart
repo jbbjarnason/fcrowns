@@ -973,7 +973,7 @@ void main() {
       });
 
       test('lay off to book with matching rank', () {
-        final game = GameState.create(firstRoundStarter: 0, 
+        final game = GameState.create(firstRoundStarter: 0,
           gameId: 'test-game',
           playerIds: ['p1', 'p2'],
           random: Random(42),
@@ -1005,6 +1005,240 @@ void main() {
         expect(player.hand.length, 1);
         expect(player.melds[0].cards.length, 4);
         expect(player.melds[0].type, MeldType.book);
+      });
+    });
+
+    group('removePlayer', () {
+      test('throws if player not found', () {
+        final game = GameState.create(
+          firstRoundStarter: 0,
+          gameId: 'test-game',
+          playerIds: ['p1', 'p2', 'p3'],
+          random: Random(42),
+        );
+        game.startGame();
+
+        expect(
+          () => game.removePlayer('nonexistent'),
+          throwsStateError,
+        );
+      });
+
+      test('removes player and updates remaining seats', () {
+        final game = GameState.create(
+          firstRoundStarter: 0,
+          gameId: 'test-game',
+          playerIds: ['p1', 'p2', 'p3'],
+          random: Random(42),
+        );
+        game.startGame();
+
+        game.removePlayer('p2');
+
+        expect(game.players.length, 2);
+        expect(game.players[0].id, 'p1');
+        expect(game.players[0].seat, 0);
+        expect(game.players[1].id, 'p3');
+        expect(game.players[1].seat, 1); // seat updated from 2 to 1
+      });
+
+      test('returns removed player cards to stock', () {
+        final game = GameState.create(
+          firstRoundStarter: 0,
+          gameId: 'test-game',
+          playerIds: ['p1', 'p2', 'p3'],
+          random: Random(42),
+        );
+        game.startGame();
+
+        final initialStockCount = game.stockCount;
+        final removedPlayerHandCount = game.players[1].hand.length;
+
+        game.removePlayer('p2');
+
+        // Stock should have increased by at least the removed player's hand
+        expect(game.stockCount, greaterThanOrEqualTo(initialStockCount + removedPlayerHandCount));
+      });
+
+      test('returns removed player meld cards to stock', () {
+        final game = GameState.create(
+          firstRoundStarter: 0,
+          gameId: 'test-game',
+          playerIds: ['p1', 'p2', 'p3'],
+          random: Random(42),
+        );
+        game.startGame();
+
+        // Player 1 (p2) lays some melds
+        // Advance to p2's turn
+        game.drawFromStock();
+        game.discard(game.currentPlayer.hand.first);
+        game.drawFromStock();
+
+        final player = game.players[1];
+        player.setHand([
+          Card(Suit.hearts, Rank.four),
+          Card(Suit.hearts, Rank.five),
+          Card(Suit.hearts, Rank.six),
+          Card(Suit.spades, Rank.king),
+        ]);
+
+        game.layMelds([
+          [
+            Card(Suit.hearts, Rank.four),
+            Card(Suit.hearts, Rank.five),
+            Card(Suit.hearts, Rank.six),
+          ],
+        ]);
+
+        final stockBefore = game.stockCount;
+        final handCount = player.hand.length;
+        final meldCardCount = player.melds[0].cards.length;
+
+        game.removePlayer('p2');
+
+        // Stock should have increased by at least the removed player's hand and meld cards
+        expect(game.stockCount, greaterThanOrEqualTo(stockBefore + handCount + meldCardCount));
+      });
+
+      test('game finishes with only 1 player left', () {
+        final game = GameState.create(
+          firstRoundStarter: 0,
+          gameId: 'test-game',
+          playerIds: ['p1', 'p2'],
+          random: Random(42),
+        );
+        game.startGame();
+
+        game.removePlayer('p2');
+
+        expect(game.status, GameStatus.finished);
+        expect(game.players.length, 1);
+      });
+
+      test('adjusts currentPlayerIndex when earlier player is removed', () {
+        final game = GameState.create(
+          firstRoundStarter: 0,
+          gameId: 'test-game',
+          playerIds: ['p1', 'p2', 'p3'],
+          random: Random(42),
+        );
+        game.startGame();
+
+        // Advance to p3's turn (index 2)
+        game.drawFromStock();
+        game.discard(game.currentPlayer.hand.first);
+        game.drawFromStock();
+        game.discard(game.currentPlayer.hand.first);
+
+        expect(game.currentPlayerIndex, 2);
+        expect(game.currentPlayer.id, 'p3');
+
+        // Remove p1 (index 0)
+        game.removePlayer('p1');
+
+        // Current player index should decrease by 1
+        expect(game.currentPlayerIndex, 1);
+        expect(game.currentPlayer.id, 'p3');
+      });
+
+      test('moves to next player when current player is removed', () {
+        final game = GameState.create(
+          firstRoundStarter: 0,
+          gameId: 'test-game',
+          playerIds: ['p1', 'p2', 'p3'],
+          random: Random(42),
+        );
+        game.startGame();
+
+        // Start on p1 (index 0)
+        expect(game.currentPlayerIndex, 0);
+        expect(game.currentPlayer.id, 'p1');
+
+        // Remove current player
+        game.removePlayer('p1');
+
+        // Should move to next player (now index 0 after removal)
+        expect(game.currentPlayerIndex, 0);
+        expect(game.currentPlayer.id, 'p2');
+        expect(game.turnPhase, TurnPhase.mustDraw);
+      });
+
+      test('wraps currentPlayerIndex when last player is removed', () {
+        final game = GameState.create(
+          firstRoundStarter: 0,
+          gameId: 'test-game',
+          playerIds: ['p1', 'p2', 'p3'],
+          random: Random(42),
+        );
+        game.startGame();
+
+        // Advance to p3's turn (index 2)
+        game.drawFromStock();
+        game.discard(game.currentPlayer.hand.first);
+        game.drawFromStock();
+        game.discard(game.currentPlayer.hand.first);
+
+        expect(game.currentPlayerIndex, 2);
+
+        // Remove p3 (current player at last position)
+        game.removePlayer('p3');
+
+        // Should wrap to index 0
+        expect(game.currentPlayerIndex, 0);
+        expect(game.currentPlayer.id, 'p1');
+      });
+
+      test('adjusts firstRoundStarter when earlier player is removed', () {
+        final game = GameState.create(
+          firstRoundStarter: 2,
+          gameId: 'test-game',
+          playerIds: ['p1', 'p2', 'p3'],
+          random: Random(42),
+        );
+        game.startGame();
+
+        expect(game.firstRoundStarter, 2);
+
+        // Remove p1 (index 0, before firstRoundStarter)
+        game.removePlayer('p1');
+
+        expect(game.firstRoundStarter, 1);
+      });
+
+      test('wraps firstRoundStarter when starter is removed', () {
+        final game = GameState.create(
+          firstRoundStarter: 2,
+          gameId: 'test-game',
+          playerIds: ['p1', 'p2', 'p3'],
+          random: Random(42),
+        );
+        game.startGame();
+
+        // Remove the player who was first starter
+        game.removePlayer('p3');
+
+        // firstRoundStarter should wrap
+        expect(game.firstRoundStarter, lessThan(2));
+      });
+
+      test('removing player mid-game preserves scores', () {
+        final game = GameState.create(
+          firstRoundStarter: 0,
+          gameId: 'test-game',
+          playerIds: ['p1', 'p2', 'p3'],
+          random: Random(42),
+        );
+        game.startGame();
+
+        // Give p1 and p3 some scores
+        game.players[0].addScore(50);
+        game.players[2].addScore(30);
+
+        game.removePlayer('p2');
+
+        expect(game.players[0].score, 50);
+        expect(game.players[1].score, 30); // p3 is now at index 1
       });
     });
   });

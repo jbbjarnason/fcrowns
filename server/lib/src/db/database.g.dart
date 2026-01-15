@@ -3655,6 +3655,683 @@ class NotificationsCompanion extends UpdateCompanion<Notification> {
   }
 }
 
+class $KickVotesTable extends KickVotes
+    with TableInfo<$KickVotesTable, KickVote> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $KickVotesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+      'id', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      clientDefault: () => _uuidGen.v4());
+  static const VerificationMeta _gameIdMeta = const VerificationMeta('gameId');
+  @override
+  late final GeneratedColumn<String> gameId = GeneratedColumn<String>(
+      'game_id', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'REFERENCES games (id) ON DELETE CASCADE'));
+  static const VerificationMeta _targetUserIdMeta =
+      const VerificationMeta('targetUserId');
+  @override
+  late final GeneratedColumn<String> targetUserId = GeneratedColumn<String>(
+      'target_user_id', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: true,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('REFERENCES users (id)'));
+  static const VerificationMeta _initiatorUserIdMeta =
+      const VerificationMeta('initiatorUserId');
+  @override
+  late final GeneratedColumn<String> initiatorUserId = GeneratedColumn<String>(
+      'initiator_user_id', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: true,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('REFERENCES users (id)'));
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      clientDefault: () => DateTime.now().toUtc());
+  static const VerificationMeta _expiresAtMeta =
+      const VerificationMeta('expiresAt');
+  @override
+  late final GeneratedColumn<DateTime> expiresAt = GeneratedColumn<DateTime>(
+      'expires_at', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+      'status', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('pending'));
+  @override
+  List<GeneratedColumn> get $columns =>
+      [id, gameId, targetUserId, initiatorUserId, createdAt, expiresAt, status];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'kick_votes';
+  @override
+  VerificationContext validateIntegrity(Insertable<KickVote> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('game_id')) {
+      context.handle(_gameIdMeta,
+          gameId.isAcceptableOrUnknown(data['game_id']!, _gameIdMeta));
+    } else if (isInserting) {
+      context.missing(_gameIdMeta);
+    }
+    if (data.containsKey('target_user_id')) {
+      context.handle(
+          _targetUserIdMeta,
+          targetUserId.isAcceptableOrUnknown(
+              data['target_user_id']!, _targetUserIdMeta));
+    } else if (isInserting) {
+      context.missing(_targetUserIdMeta);
+    }
+    if (data.containsKey('initiator_user_id')) {
+      context.handle(
+          _initiatorUserIdMeta,
+          initiatorUserId.isAcceptableOrUnknown(
+              data['initiator_user_id']!, _initiatorUserIdMeta));
+    } else if (isInserting) {
+      context.missing(_initiatorUserIdMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    }
+    if (data.containsKey('expires_at')) {
+      context.handle(_expiresAtMeta,
+          expiresAt.isAcceptableOrUnknown(data['expires_at']!, _expiresAtMeta));
+    } else if (isInserting) {
+      context.missing(_expiresAtMeta);
+    }
+    if (data.containsKey('status')) {
+      context.handle(_statusMeta,
+          status.isAcceptableOrUnknown(data['status']!, _statusMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  KickVote map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return KickVote(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}id'])!,
+      gameId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}game_id'])!,
+      targetUserId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}target_user_id'])!,
+      initiatorUserId: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}initiator_user_id'])!,
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+      expiresAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}expires_at'])!,
+      status: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}status'])!,
+    );
+  }
+
+  @override
+  $KickVotesTable createAlias(String alias) {
+    return $KickVotesTable(attachedDatabase, alias);
+  }
+}
+
+class KickVote extends DataClass implements Insertable<KickVote> {
+  final String id;
+  final String gameId;
+  final String targetUserId;
+  final String initiatorUserId;
+  final DateTime createdAt;
+  final DateTime expiresAt;
+  final String status;
+  const KickVote(
+      {required this.id,
+      required this.gameId,
+      required this.targetUserId,
+      required this.initiatorUserId,
+      required this.createdAt,
+      required this.expiresAt,
+      required this.status});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['game_id'] = Variable<String>(gameId);
+    map['target_user_id'] = Variable<String>(targetUserId);
+    map['initiator_user_id'] = Variable<String>(initiatorUserId);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['expires_at'] = Variable<DateTime>(expiresAt);
+    map['status'] = Variable<String>(status);
+    return map;
+  }
+
+  KickVotesCompanion toCompanion(bool nullToAbsent) {
+    return KickVotesCompanion(
+      id: Value(id),
+      gameId: Value(gameId),
+      targetUserId: Value(targetUserId),
+      initiatorUserId: Value(initiatorUserId),
+      createdAt: Value(createdAt),
+      expiresAt: Value(expiresAt),
+      status: Value(status),
+    );
+  }
+
+  factory KickVote.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return KickVote(
+      id: serializer.fromJson<String>(json['id']),
+      gameId: serializer.fromJson<String>(json['gameId']),
+      targetUserId: serializer.fromJson<String>(json['targetUserId']),
+      initiatorUserId: serializer.fromJson<String>(json['initiatorUserId']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      expiresAt: serializer.fromJson<DateTime>(json['expiresAt']),
+      status: serializer.fromJson<String>(json['status']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'gameId': serializer.toJson<String>(gameId),
+      'targetUserId': serializer.toJson<String>(targetUserId),
+      'initiatorUserId': serializer.toJson<String>(initiatorUserId),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'expiresAt': serializer.toJson<DateTime>(expiresAt),
+      'status': serializer.toJson<String>(status),
+    };
+  }
+
+  KickVote copyWith(
+          {String? id,
+          String? gameId,
+          String? targetUserId,
+          String? initiatorUserId,
+          DateTime? createdAt,
+          DateTime? expiresAt,
+          String? status}) =>
+      KickVote(
+        id: id ?? this.id,
+        gameId: gameId ?? this.gameId,
+        targetUserId: targetUserId ?? this.targetUserId,
+        initiatorUserId: initiatorUserId ?? this.initiatorUserId,
+        createdAt: createdAt ?? this.createdAt,
+        expiresAt: expiresAt ?? this.expiresAt,
+        status: status ?? this.status,
+      );
+  KickVote copyWithCompanion(KickVotesCompanion data) {
+    return KickVote(
+      id: data.id.present ? data.id.value : this.id,
+      gameId: data.gameId.present ? data.gameId.value : this.gameId,
+      targetUserId: data.targetUserId.present
+          ? data.targetUserId.value
+          : this.targetUserId,
+      initiatorUserId: data.initiatorUserId.present
+          ? data.initiatorUserId.value
+          : this.initiatorUserId,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      expiresAt: data.expiresAt.present ? data.expiresAt.value : this.expiresAt,
+      status: data.status.present ? data.status.value : this.status,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('KickVote(')
+          ..write('id: $id, ')
+          ..write('gameId: $gameId, ')
+          ..write('targetUserId: $targetUserId, ')
+          ..write('initiatorUserId: $initiatorUserId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('expiresAt: $expiresAt, ')
+          ..write('status: $status')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+      id, gameId, targetUserId, initiatorUserId, createdAt, expiresAt, status);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is KickVote &&
+          other.id == this.id &&
+          other.gameId == this.gameId &&
+          other.targetUserId == this.targetUserId &&
+          other.initiatorUserId == this.initiatorUserId &&
+          other.createdAt == this.createdAt &&
+          other.expiresAt == this.expiresAt &&
+          other.status == this.status);
+}
+
+class KickVotesCompanion extends UpdateCompanion<KickVote> {
+  final Value<String> id;
+  final Value<String> gameId;
+  final Value<String> targetUserId;
+  final Value<String> initiatorUserId;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> expiresAt;
+  final Value<String> status;
+  final Value<int> rowid;
+  const KickVotesCompanion({
+    this.id = const Value.absent(),
+    this.gameId = const Value.absent(),
+    this.targetUserId = const Value.absent(),
+    this.initiatorUserId = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.expiresAt = const Value.absent(),
+    this.status = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  KickVotesCompanion.insert({
+    this.id = const Value.absent(),
+    required String gameId,
+    required String targetUserId,
+    required String initiatorUserId,
+    this.createdAt = const Value.absent(),
+    required DateTime expiresAt,
+    this.status = const Value.absent(),
+    this.rowid = const Value.absent(),
+  })  : gameId = Value(gameId),
+        targetUserId = Value(targetUserId),
+        initiatorUserId = Value(initiatorUserId),
+        expiresAt = Value(expiresAt);
+  static Insertable<KickVote> custom({
+    Expression<String>? id,
+    Expression<String>? gameId,
+    Expression<String>? targetUserId,
+    Expression<String>? initiatorUserId,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? expiresAt,
+    Expression<String>? status,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (gameId != null) 'game_id': gameId,
+      if (targetUserId != null) 'target_user_id': targetUserId,
+      if (initiatorUserId != null) 'initiator_user_id': initiatorUserId,
+      if (createdAt != null) 'created_at': createdAt,
+      if (expiresAt != null) 'expires_at': expiresAt,
+      if (status != null) 'status': status,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  KickVotesCompanion copyWith(
+      {Value<String>? id,
+      Value<String>? gameId,
+      Value<String>? targetUserId,
+      Value<String>? initiatorUserId,
+      Value<DateTime>? createdAt,
+      Value<DateTime>? expiresAt,
+      Value<String>? status,
+      Value<int>? rowid}) {
+    return KickVotesCompanion(
+      id: id ?? this.id,
+      gameId: gameId ?? this.gameId,
+      targetUserId: targetUserId ?? this.targetUserId,
+      initiatorUserId: initiatorUserId ?? this.initiatorUserId,
+      createdAt: createdAt ?? this.createdAt,
+      expiresAt: expiresAt ?? this.expiresAt,
+      status: status ?? this.status,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (gameId.present) {
+      map['game_id'] = Variable<String>(gameId.value);
+    }
+    if (targetUserId.present) {
+      map['target_user_id'] = Variable<String>(targetUserId.value);
+    }
+    if (initiatorUserId.present) {
+      map['initiator_user_id'] = Variable<String>(initiatorUserId.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (expiresAt.present) {
+      map['expires_at'] = Variable<DateTime>(expiresAt.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('KickVotesCompanion(')
+          ..write('id: $id, ')
+          ..write('gameId: $gameId, ')
+          ..write('targetUserId: $targetUserId, ')
+          ..write('initiatorUserId: $initiatorUserId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('expiresAt: $expiresAt, ')
+          ..write('status: $status, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $KickVoteResponsesTable extends KickVoteResponses
+    with TableInfo<$KickVoteResponsesTable, KickVoteResponse> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $KickVoteResponsesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _voteIdMeta = const VerificationMeta('voteId');
+  @override
+  late final GeneratedColumn<String> voteId = GeneratedColumn<String>(
+      'vote_id', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'REFERENCES kick_votes (id) ON DELETE CASCADE'));
+  static const VerificationMeta _odooUserIdMeta =
+      const VerificationMeta('odooUserId');
+  @override
+  late final GeneratedColumn<String> odooUserId = GeneratedColumn<String>(
+      'odoo_user_id', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: true,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('REFERENCES users (id)'));
+  static const VerificationMeta _approveMeta =
+      const VerificationMeta('approve');
+  @override
+  late final GeneratedColumn<int> approve = GeneratedColumn<int>(
+      'approve', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _votedAtMeta =
+      const VerificationMeta('votedAt');
+  @override
+  late final GeneratedColumn<DateTime> votedAt = GeneratedColumn<DateTime>(
+      'voted_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      clientDefault: () => DateTime.now().toUtc());
+  @override
+  List<GeneratedColumn> get $columns => [voteId, odooUserId, approve, votedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'kick_vote_responses';
+  @override
+  VerificationContext validateIntegrity(Insertable<KickVoteResponse> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('vote_id')) {
+      context.handle(_voteIdMeta,
+          voteId.isAcceptableOrUnknown(data['vote_id']!, _voteIdMeta));
+    } else if (isInserting) {
+      context.missing(_voteIdMeta);
+    }
+    if (data.containsKey('odoo_user_id')) {
+      context.handle(
+          _odooUserIdMeta,
+          odooUserId.isAcceptableOrUnknown(
+              data['odoo_user_id']!, _odooUserIdMeta));
+    } else if (isInserting) {
+      context.missing(_odooUserIdMeta);
+    }
+    if (data.containsKey('approve')) {
+      context.handle(_approveMeta,
+          approve.isAcceptableOrUnknown(data['approve']!, _approveMeta));
+    } else if (isInserting) {
+      context.missing(_approveMeta);
+    }
+    if (data.containsKey('voted_at')) {
+      context.handle(_votedAtMeta,
+          votedAt.isAcceptableOrUnknown(data['voted_at']!, _votedAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {voteId, odooUserId};
+  @override
+  KickVoteResponse map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return KickVoteResponse(
+      voteId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}vote_id'])!,
+      odooUserId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}odoo_user_id'])!,
+      approve: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}approve'])!,
+      votedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}voted_at'])!,
+    );
+  }
+
+  @override
+  $KickVoteResponsesTable createAlias(String alias) {
+    return $KickVoteResponsesTable(attachedDatabase, alias);
+  }
+}
+
+class KickVoteResponse extends DataClass
+    implements Insertable<KickVoteResponse> {
+  final String voteId;
+  final String odooUserId;
+  final int approve;
+  final DateTime votedAt;
+  const KickVoteResponse(
+      {required this.voteId,
+      required this.odooUserId,
+      required this.approve,
+      required this.votedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['vote_id'] = Variable<String>(voteId);
+    map['odoo_user_id'] = Variable<String>(odooUserId);
+    map['approve'] = Variable<int>(approve);
+    map['voted_at'] = Variable<DateTime>(votedAt);
+    return map;
+  }
+
+  KickVoteResponsesCompanion toCompanion(bool nullToAbsent) {
+    return KickVoteResponsesCompanion(
+      voteId: Value(voteId),
+      odooUserId: Value(odooUserId),
+      approve: Value(approve),
+      votedAt: Value(votedAt),
+    );
+  }
+
+  factory KickVoteResponse.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return KickVoteResponse(
+      voteId: serializer.fromJson<String>(json['voteId']),
+      odooUserId: serializer.fromJson<String>(json['odooUserId']),
+      approve: serializer.fromJson<int>(json['approve']),
+      votedAt: serializer.fromJson<DateTime>(json['votedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'voteId': serializer.toJson<String>(voteId),
+      'odooUserId': serializer.toJson<String>(odooUserId),
+      'approve': serializer.toJson<int>(approve),
+      'votedAt': serializer.toJson<DateTime>(votedAt),
+    };
+  }
+
+  KickVoteResponse copyWith(
+          {String? voteId,
+          String? odooUserId,
+          int? approve,
+          DateTime? votedAt}) =>
+      KickVoteResponse(
+        voteId: voteId ?? this.voteId,
+        odooUserId: odooUserId ?? this.odooUserId,
+        approve: approve ?? this.approve,
+        votedAt: votedAt ?? this.votedAt,
+      );
+  KickVoteResponse copyWithCompanion(KickVoteResponsesCompanion data) {
+    return KickVoteResponse(
+      voteId: data.voteId.present ? data.voteId.value : this.voteId,
+      odooUserId:
+          data.odooUserId.present ? data.odooUserId.value : this.odooUserId,
+      approve: data.approve.present ? data.approve.value : this.approve,
+      votedAt: data.votedAt.present ? data.votedAt.value : this.votedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('KickVoteResponse(')
+          ..write('voteId: $voteId, ')
+          ..write('odooUserId: $odooUserId, ')
+          ..write('approve: $approve, ')
+          ..write('votedAt: $votedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(voteId, odooUserId, approve, votedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is KickVoteResponse &&
+          other.voteId == this.voteId &&
+          other.odooUserId == this.odooUserId &&
+          other.approve == this.approve &&
+          other.votedAt == this.votedAt);
+}
+
+class KickVoteResponsesCompanion extends UpdateCompanion<KickVoteResponse> {
+  final Value<String> voteId;
+  final Value<String> odooUserId;
+  final Value<int> approve;
+  final Value<DateTime> votedAt;
+  final Value<int> rowid;
+  const KickVoteResponsesCompanion({
+    this.voteId = const Value.absent(),
+    this.odooUserId = const Value.absent(),
+    this.approve = const Value.absent(),
+    this.votedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  KickVoteResponsesCompanion.insert({
+    required String voteId,
+    required String odooUserId,
+    required int approve,
+    this.votedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  })  : voteId = Value(voteId),
+        odooUserId = Value(odooUserId),
+        approve = Value(approve);
+  static Insertable<KickVoteResponse> custom({
+    Expression<String>? voteId,
+    Expression<String>? odooUserId,
+    Expression<int>? approve,
+    Expression<DateTime>? votedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (voteId != null) 'vote_id': voteId,
+      if (odooUserId != null) 'odoo_user_id': odooUserId,
+      if (approve != null) 'approve': approve,
+      if (votedAt != null) 'voted_at': votedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  KickVoteResponsesCompanion copyWith(
+      {Value<String>? voteId,
+      Value<String>? odooUserId,
+      Value<int>? approve,
+      Value<DateTime>? votedAt,
+      Value<int>? rowid}) {
+    return KickVoteResponsesCompanion(
+      voteId: voteId ?? this.voteId,
+      odooUserId: odooUserId ?? this.odooUserId,
+      approve: approve ?? this.approve,
+      votedAt: votedAt ?? this.votedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (voteId.present) {
+      map['vote_id'] = Variable<String>(voteId.value);
+    }
+    if (odooUserId.present) {
+      map['odoo_user_id'] = Variable<String>(odooUserId.value);
+    }
+    if (approve.present) {
+      map['approve'] = Variable<int>(approve.value);
+    }
+    if (votedAt.present) {
+      map['voted_at'] = Variable<DateTime>(votedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('KickVoteResponsesCompanion(')
+          ..write('voteId: $voteId, ')
+          ..write('odooUserId: $odooUserId, ')
+          ..write('approve: $approve, ')
+          ..write('votedAt: $votedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3669,6 +4346,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $GameResultsTable gameResults = $GameResultsTable(this);
   late final $UserStatsTable userStats = $UserStatsTable(this);
   late final $NotificationsTable notifications = $NotificationsTable(this);
+  late final $KickVotesTable kickVotes = $KickVotesTable(this);
+  late final $KickVoteResponsesTable kickVoteResponses =
+      $KickVoteResponsesTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3684,7 +4364,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         gameSnapshots,
         gameResults,
         userStats,
-        notifications
+        notifications,
+        kickVotes,
+        kickVoteResponses
       ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules(
@@ -3778,6 +4460,20 @@ abstract class _$AppDatabase extends GeneratedDatabase {
                 limitUpdateKind: UpdateKind.delete),
             result: [
               TableUpdate('notifications', kind: UpdateKind.delete),
+            ],
+          ),
+          WritePropagation(
+            on: TableUpdateQuery.onTableName('games',
+                limitUpdateKind: UpdateKind.delete),
+            result: [
+              TableUpdate('kick_votes', kind: UpdateKind.delete),
+            ],
+          ),
+          WritePropagation(
+            on: TableUpdateQuery.onTableName('kick_votes',
+                limitUpdateKind: UpdateKind.delete),
+            result: [
+              TableUpdate('kick_vote_responses', kind: UpdateKind.delete),
             ],
           ),
         ],
@@ -3894,6 +4590,23 @@ final class $$UsersTableReferences
         .filter((f) => f.userId.id.sqlEquals($_itemColumn<String>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_userStatsRefsTable($_db));
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: cache));
+  }
+
+  static MultiTypedResultKey<$KickVoteResponsesTable, List<KickVoteResponse>>
+      _kickVoteResponsesRefsTable(_$AppDatabase db) =>
+          MultiTypedResultKey.fromTable(db.kickVoteResponses,
+              aliasName: $_aliasNameGenerator(
+                  db.users.id, db.kickVoteResponses.odooUserId));
+
+  $$KickVoteResponsesTableProcessedTableManager get kickVoteResponsesRefs {
+    final manager = $$KickVoteResponsesTableTableManager(
+            $_db, $_db.kickVoteResponses)
+        .filter((f) => f.odooUserId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache =
+        $_typedResult.readTableOrNull(_kickVoteResponsesRefsTable($_db));
     return ProcessedTableManager(
         manager.$state.copyWith(prefetchedData: cache));
   }
@@ -4050,6 +4763,27 @@ class $$UsersTableFilterComposer extends Composer<_$AppDatabase, $UsersTable> {
             $$UserStatsTableFilterComposer(
               $db: $db,
               $table: $db.userStats,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+
+  Expression<bool> kickVoteResponsesRefs(
+      Expression<bool> Function($$KickVoteResponsesTableFilterComposer f) f) {
+    final $$KickVoteResponsesTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.kickVoteResponses,
+        getReferencedColumn: (t) => t.odooUserId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$KickVoteResponsesTableFilterComposer(
+              $db: $db,
+              $table: $db.kickVoteResponses,
               $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
               joinBuilder: joinBuilder,
               $removeJoinBuilderFromRootComposer:
@@ -4253,6 +4987,28 @@ class $$UsersTableAnnotationComposer
             ));
     return f(composer);
   }
+
+  Expression<T> kickVoteResponsesRefs<T extends Object>(
+      Expression<T> Function($$KickVoteResponsesTableAnnotationComposer a) f) {
+    final $$KickVoteResponsesTableAnnotationComposer composer =
+        $composerBuilder(
+            composer: this,
+            getCurrentColumn: (t) => t.id,
+            referencedTable: $db.kickVoteResponses,
+            getReferencedColumn: (t) => t.odooUserId,
+            builder: (joinBuilder,
+                    {$addJoinBuilderToRootComposer,
+                    $removeJoinBuilderFromRootComposer}) =>
+                $$KickVoteResponsesTableAnnotationComposer(
+                  $db: $db,
+                  $table: $db.kickVoteResponses,
+                  $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                  joinBuilder: joinBuilder,
+                  $removeJoinBuilderFromRootComposer:
+                      $removeJoinBuilderFromRootComposer,
+                ));
+    return f(composer);
+  }
 }
 
 class $$UsersTableTableManager extends RootTableManager<
@@ -4272,7 +5028,8 @@ class $$UsersTableTableManager extends RootTableManager<
         bool gamesRefs,
         bool gamePlayersRefs,
         bool gameResultsRefs,
-        bool userStatsRefs})> {
+        bool userStatsRefs,
+        bool kickVoteResponsesRefs})> {
   $$UsersTableTableManager(_$AppDatabase db, $UsersTable table)
       : super(TableManagerState(
           db: db,
@@ -4337,7 +5094,8 @@ class $$UsersTableTableManager extends RootTableManager<
               gamesRefs = false,
               gamePlayersRefs = false,
               gameResultsRefs = false,
-              userStatsRefs = false}) {
+              userStatsRefs = false,
+              kickVoteResponsesRefs = false}) {
             return PrefetchHooks(
               db: db,
               explicitlyWatchedTables: [
@@ -4346,7 +5104,8 @@ class $$UsersTableTableManager extends RootTableManager<
                 if (gamesRefs) db.games,
                 if (gamePlayersRefs) db.gamePlayers,
                 if (gameResultsRefs) db.gameResults,
-                if (userStatsRefs) db.userStats
+                if (userStatsRefs) db.userStats,
+                if (kickVoteResponsesRefs) db.kickVoteResponses
               ],
               addJoins: null,
               getPrefetchedDataCallback: (items) async {
@@ -4420,6 +5179,19 @@ class $$UsersTableTableManager extends RootTableManager<
                         referencedItemsForCurrentItem: (item,
                                 referencedItems) =>
                             referencedItems.where((e) => e.userId == item.id),
+                        typedResults: items),
+                  if (kickVoteResponsesRefs)
+                    await $_getPrefetchedData<User, $UsersTable,
+                            KickVoteResponse>(
+                        currentTable: table,
+                        referencedTable: $$UsersTableReferences
+                            ._kickVoteResponsesRefsTable(db),
+                        managerFromTypedResult: (p0) =>
+                            $$UsersTableReferences(db, table, p0)
+                                .kickVoteResponsesRefs,
+                        referencedItemsForCurrentItem:
+                            (item, referencedItems) => referencedItems
+                                .where((e) => e.odooUserId == item.id),
                         typedResults: items)
                 ];
               },
@@ -4445,7 +5217,8 @@ typedef $$UsersTableProcessedTableManager = ProcessedTableManager<
         bool gamesRefs,
         bool gamePlayersRefs,
         bool gameResultsRefs,
-        bool userStatsRefs})>;
+        bool userStatsRefs,
+        bool kickVoteResponsesRefs})>;
 typedef $$EmailTokensTableCreateCompanionBuilder = EmailTokensCompanion
     Function({
   Value<String> id,
@@ -5482,6 +6255,20 @@ final class $$GamesTableReferences
     return ProcessedTableManager(
         manager.$state.copyWith(prefetchedData: cache));
   }
+
+  static MultiTypedResultKey<$KickVotesTable, List<KickVote>>
+      _kickVotesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+          db.kickVotes,
+          aliasName: $_aliasNameGenerator(db.games.id, db.kickVotes.gameId));
+
+  $$KickVotesTableProcessedTableManager get kickVotesRefs {
+    final manager = $$KickVotesTableTableManager($_db, $_db.kickVotes)
+        .filter((f) => f.gameId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_kickVotesRefsTable($_db));
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: cache));
+  }
 }
 
 class $$GamesTableFilterComposer extends Composer<_$AppDatabase, $GamesTable> {
@@ -5624,6 +6411,27 @@ class $$GamesTableFilterComposer extends Composer<_$AppDatabase, $GamesTable> {
             $$NotificationsTableFilterComposer(
               $db: $db,
               $table: $db.notifications,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+
+  Expression<bool> kickVotesRefs(
+      Expression<bool> Function($$KickVotesTableFilterComposer f) f) {
+    final $$KickVotesTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.kickVotes,
+        getReferencedColumn: (t) => t.gameId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$KickVotesTableFilterComposer(
+              $db: $db,
+              $table: $db.kickVotes,
               $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
               joinBuilder: joinBuilder,
               $removeJoinBuilderFromRootComposer:
@@ -5826,6 +6634,27 @@ class $$GamesTableAnnotationComposer
             ));
     return f(composer);
   }
+
+  Expression<T> kickVotesRefs<T extends Object>(
+      Expression<T> Function($$KickVotesTableAnnotationComposer a) f) {
+    final $$KickVotesTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.kickVotes,
+        getReferencedColumn: (t) => t.gameId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$KickVotesTableAnnotationComposer(
+              $db: $db,
+              $table: $db.kickVotes,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
 }
 
 class $$GamesTableTableManager extends RootTableManager<
@@ -5845,7 +6674,8 @@ class $$GamesTableTableManager extends RootTableManager<
         bool gameEventsRefs,
         bool gameSnapshotsRefs,
         bool gameResultsRefs,
-        bool notificationsRefs})> {
+        bool notificationsRefs,
+        bool kickVotesRefs})> {
   $$GamesTableTableManager(_$AppDatabase db, $GamesTable table)
       : super(TableManagerState(
           db: db,
@@ -5902,7 +6732,8 @@ class $$GamesTableTableManager extends RootTableManager<
               gameEventsRefs = false,
               gameSnapshotsRefs = false,
               gameResultsRefs = false,
-              notificationsRefs = false}) {
+              notificationsRefs = false,
+              kickVotesRefs = false}) {
             return PrefetchHooks(
               db: db,
               explicitlyWatchedTables: [
@@ -5910,7 +6741,8 @@ class $$GamesTableTableManager extends RootTableManager<
                 if (gameEventsRefs) db.gameEvents,
                 if (gameSnapshotsRefs) db.gameSnapshots,
                 if (gameResultsRefs) db.gameResults,
-                if (notificationsRefs) db.notifications
+                if (notificationsRefs) db.notifications,
+                if (kickVotesRefs) db.kickVotes
               ],
               addJoins: <
                   T extends TableManagerState<
@@ -5998,6 +6830,17 @@ class $$GamesTableTableManager extends RootTableManager<
                         referencedItemsForCurrentItem: (item,
                                 referencedItems) =>
                             referencedItems.where((e) => e.gameId == item.id),
+                        typedResults: items),
+                  if (kickVotesRefs)
+                    await $_getPrefetchedData<Game, $GamesTable, KickVote>(
+                        currentTable: table,
+                        referencedTable:
+                            $$GamesTableReferences._kickVotesRefsTable(db),
+                        managerFromTypedResult: (p0) =>
+                            $$GamesTableReferences(db, table, p0).kickVotesRefs,
+                        referencedItemsForCurrentItem: (item,
+                                referencedItems) =>
+                            referencedItems.where((e) => e.gameId == item.id),
                         typedResults: items)
                 ];
               },
@@ -6023,7 +6866,8 @@ typedef $$GamesTableProcessedTableManager = ProcessedTableManager<
         bool gameEventsRefs,
         bool gameSnapshotsRefs,
         bool gameResultsRefs,
-        bool notificationsRefs})>;
+        bool notificationsRefs,
+        bool kickVotesRefs})>;
 typedef $$GamePlayersTableCreateCompanionBuilder = GamePlayersCompanion
     Function({
   required String gameId,
@@ -7953,6 +8797,887 @@ typedef $$NotificationsTableProcessedTableManager = ProcessedTableManager<
     (Notification, $$NotificationsTableReferences),
     Notification,
     PrefetchHooks Function({bool userId, bool fromUserId, bool gameId})>;
+typedef $$KickVotesTableCreateCompanionBuilder = KickVotesCompanion Function({
+  Value<String> id,
+  required String gameId,
+  required String targetUserId,
+  required String initiatorUserId,
+  Value<DateTime> createdAt,
+  required DateTime expiresAt,
+  Value<String> status,
+  Value<int> rowid,
+});
+typedef $$KickVotesTableUpdateCompanionBuilder = KickVotesCompanion Function({
+  Value<String> id,
+  Value<String> gameId,
+  Value<String> targetUserId,
+  Value<String> initiatorUserId,
+  Value<DateTime> createdAt,
+  Value<DateTime> expiresAt,
+  Value<String> status,
+  Value<int> rowid,
+});
+
+final class $$KickVotesTableReferences
+    extends BaseReferences<_$AppDatabase, $KickVotesTable, KickVote> {
+  $$KickVotesTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $GamesTable _gameIdTable(_$AppDatabase db) => db.games
+      .createAlias($_aliasNameGenerator(db.kickVotes.gameId, db.games.id));
+
+  $$GamesTableProcessedTableManager get gameId {
+    final $_column = $_itemColumn<String>('game_id')!;
+
+    final manager = $$GamesTableTableManager($_db, $_db.games)
+        .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_gameIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: [item]));
+  }
+
+  static $UsersTable _targetUserIdTable(_$AppDatabase db) =>
+      db.users.createAlias(
+          $_aliasNameGenerator(db.kickVotes.targetUserId, db.users.id));
+
+  $$UsersTableProcessedTableManager get targetUserId {
+    final $_column = $_itemColumn<String>('target_user_id')!;
+
+    final manager = $$UsersTableTableManager($_db, $_db.users)
+        .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_targetUserIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: [item]));
+  }
+
+  static $UsersTable _initiatorUserIdTable(_$AppDatabase db) =>
+      db.users.createAlias(
+          $_aliasNameGenerator(db.kickVotes.initiatorUserId, db.users.id));
+
+  $$UsersTableProcessedTableManager get initiatorUserId {
+    final $_column = $_itemColumn<String>('initiator_user_id')!;
+
+    final manager = $$UsersTableTableManager($_db, $_db.users)
+        .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_initiatorUserIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: [item]));
+  }
+
+  static MultiTypedResultKey<$KickVoteResponsesTable, List<KickVoteResponse>>
+      _kickVoteResponsesRefsTable(_$AppDatabase db) =>
+          MultiTypedResultKey.fromTable(db.kickVoteResponses,
+              aliasName: $_aliasNameGenerator(
+                  db.kickVotes.id, db.kickVoteResponses.voteId));
+
+  $$KickVoteResponsesTableProcessedTableManager get kickVoteResponsesRefs {
+    final manager =
+        $$KickVoteResponsesTableTableManager($_db, $_db.kickVoteResponses)
+            .filter((f) => f.voteId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache =
+        $_typedResult.readTableOrNull(_kickVoteResponsesRefsTable($_db));
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: cache));
+  }
+}
+
+class $$KickVotesTableFilterComposer
+    extends Composer<_$AppDatabase, $KickVotesTable> {
+  $$KickVotesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get expiresAt => $composableBuilder(
+      column: $table.expiresAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get status => $composableBuilder(
+      column: $table.status, builder: (column) => ColumnFilters(column));
+
+  $$GamesTableFilterComposer get gameId {
+    final $$GamesTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.gameId,
+        referencedTable: $db.games,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$GamesTableFilterComposer(
+              $db: $db,
+              $table: $db.games,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$UsersTableFilterComposer get targetUserId {
+    final $$UsersTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.targetUserId,
+        referencedTable: $db.users,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$UsersTableFilterComposer(
+              $db: $db,
+              $table: $db.users,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$UsersTableFilterComposer get initiatorUserId {
+    final $$UsersTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.initiatorUserId,
+        referencedTable: $db.users,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$UsersTableFilterComposer(
+              $db: $db,
+              $table: $db.users,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  Expression<bool> kickVoteResponsesRefs(
+      Expression<bool> Function($$KickVoteResponsesTableFilterComposer f) f) {
+    final $$KickVoteResponsesTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.kickVoteResponses,
+        getReferencedColumn: (t) => t.voteId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$KickVoteResponsesTableFilterComposer(
+              $db: $db,
+              $table: $db.kickVoteResponses,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+}
+
+class $$KickVotesTableOrderingComposer
+    extends Composer<_$AppDatabase, $KickVotesTable> {
+  $$KickVotesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get expiresAt => $composableBuilder(
+      column: $table.expiresAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get status => $composableBuilder(
+      column: $table.status, builder: (column) => ColumnOrderings(column));
+
+  $$GamesTableOrderingComposer get gameId {
+    final $$GamesTableOrderingComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.gameId,
+        referencedTable: $db.games,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$GamesTableOrderingComposer(
+              $db: $db,
+              $table: $db.games,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$UsersTableOrderingComposer get targetUserId {
+    final $$UsersTableOrderingComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.targetUserId,
+        referencedTable: $db.users,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$UsersTableOrderingComposer(
+              $db: $db,
+              $table: $db.users,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$UsersTableOrderingComposer get initiatorUserId {
+    final $$UsersTableOrderingComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.initiatorUserId,
+        referencedTable: $db.users,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$UsersTableOrderingComposer(
+              $db: $db,
+              $table: $db.users,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$KickVotesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $KickVotesTable> {
+  $$KickVotesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get expiresAt =>
+      $composableBuilder(column: $table.expiresAt, builder: (column) => column);
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  $$GamesTableAnnotationComposer get gameId {
+    final $$GamesTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.gameId,
+        referencedTable: $db.games,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$GamesTableAnnotationComposer(
+              $db: $db,
+              $table: $db.games,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$UsersTableAnnotationComposer get targetUserId {
+    final $$UsersTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.targetUserId,
+        referencedTable: $db.users,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$UsersTableAnnotationComposer(
+              $db: $db,
+              $table: $db.users,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$UsersTableAnnotationComposer get initiatorUserId {
+    final $$UsersTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.initiatorUserId,
+        referencedTable: $db.users,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$UsersTableAnnotationComposer(
+              $db: $db,
+              $table: $db.users,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  Expression<T> kickVoteResponsesRefs<T extends Object>(
+      Expression<T> Function($$KickVoteResponsesTableAnnotationComposer a) f) {
+    final $$KickVoteResponsesTableAnnotationComposer composer =
+        $composerBuilder(
+            composer: this,
+            getCurrentColumn: (t) => t.id,
+            referencedTable: $db.kickVoteResponses,
+            getReferencedColumn: (t) => t.voteId,
+            builder: (joinBuilder,
+                    {$addJoinBuilderToRootComposer,
+                    $removeJoinBuilderFromRootComposer}) =>
+                $$KickVoteResponsesTableAnnotationComposer(
+                  $db: $db,
+                  $table: $db.kickVoteResponses,
+                  $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                  joinBuilder: joinBuilder,
+                  $removeJoinBuilderFromRootComposer:
+                      $removeJoinBuilderFromRootComposer,
+                ));
+    return f(composer);
+  }
+}
+
+class $$KickVotesTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $KickVotesTable,
+    KickVote,
+    $$KickVotesTableFilterComposer,
+    $$KickVotesTableOrderingComposer,
+    $$KickVotesTableAnnotationComposer,
+    $$KickVotesTableCreateCompanionBuilder,
+    $$KickVotesTableUpdateCompanionBuilder,
+    (KickVote, $$KickVotesTableReferences),
+    KickVote,
+    PrefetchHooks Function(
+        {bool gameId,
+        bool targetUserId,
+        bool initiatorUserId,
+        bool kickVoteResponsesRefs})> {
+  $$KickVotesTableTableManager(_$AppDatabase db, $KickVotesTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$KickVotesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$KickVotesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$KickVotesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> id = const Value.absent(),
+            Value<String> gameId = const Value.absent(),
+            Value<String> targetUserId = const Value.absent(),
+            Value<String> initiatorUserId = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+            Value<DateTime> expiresAt = const Value.absent(),
+            Value<String> status = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              KickVotesCompanion(
+            id: id,
+            gameId: gameId,
+            targetUserId: targetUserId,
+            initiatorUserId: initiatorUserId,
+            createdAt: createdAt,
+            expiresAt: expiresAt,
+            status: status,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            Value<String> id = const Value.absent(),
+            required String gameId,
+            required String targetUserId,
+            required String initiatorUserId,
+            Value<DateTime> createdAt = const Value.absent(),
+            required DateTime expiresAt,
+            Value<String> status = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              KickVotesCompanion.insert(
+            id: id,
+            gameId: gameId,
+            targetUserId: targetUserId,
+            initiatorUserId: initiatorUserId,
+            createdAt: createdAt,
+            expiresAt: expiresAt,
+            status: status,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (
+                    e.readTable(table),
+                    $$KickVotesTableReferences(db, table, e)
+                  ))
+              .toList(),
+          prefetchHooksCallback: (
+              {gameId = false,
+              targetUserId = false,
+              initiatorUserId = false,
+              kickVoteResponsesRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [
+                if (kickVoteResponsesRefs) db.kickVoteResponses
+              ],
+              addJoins: <
+                  T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic>>(state) {
+                if (gameId) {
+                  state = state.withJoin(
+                    currentTable: table,
+                    currentColumn: table.gameId,
+                    referencedTable:
+                        $$KickVotesTableReferences._gameIdTable(db),
+                    referencedColumn:
+                        $$KickVotesTableReferences._gameIdTable(db).id,
+                  ) as T;
+                }
+                if (targetUserId) {
+                  state = state.withJoin(
+                    currentTable: table,
+                    currentColumn: table.targetUserId,
+                    referencedTable:
+                        $$KickVotesTableReferences._targetUserIdTable(db),
+                    referencedColumn:
+                        $$KickVotesTableReferences._targetUserIdTable(db).id,
+                  ) as T;
+                }
+                if (initiatorUserId) {
+                  state = state.withJoin(
+                    currentTable: table,
+                    currentColumn: table.initiatorUserId,
+                    referencedTable:
+                        $$KickVotesTableReferences._initiatorUserIdTable(db),
+                    referencedColumn:
+                        $$KickVotesTableReferences._initiatorUserIdTable(db).id,
+                  ) as T;
+                }
+
+                return state;
+              },
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (kickVoteResponsesRefs)
+                    await $_getPrefetchedData<KickVote, $KickVotesTable,
+                            KickVoteResponse>(
+                        currentTable: table,
+                        referencedTable: $$KickVotesTableReferences
+                            ._kickVoteResponsesRefsTable(db),
+                        managerFromTypedResult: (p0) =>
+                            $$KickVotesTableReferences(db, table, p0)
+                                .kickVoteResponsesRefs,
+                        referencedItemsForCurrentItem: (item,
+                                referencedItems) =>
+                            referencedItems.where((e) => e.voteId == item.id),
+                        typedResults: items)
+                ];
+              },
+            );
+          },
+        ));
+}
+
+typedef $$KickVotesTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $KickVotesTable,
+    KickVote,
+    $$KickVotesTableFilterComposer,
+    $$KickVotesTableOrderingComposer,
+    $$KickVotesTableAnnotationComposer,
+    $$KickVotesTableCreateCompanionBuilder,
+    $$KickVotesTableUpdateCompanionBuilder,
+    (KickVote, $$KickVotesTableReferences),
+    KickVote,
+    PrefetchHooks Function(
+        {bool gameId,
+        bool targetUserId,
+        bool initiatorUserId,
+        bool kickVoteResponsesRefs})>;
+typedef $$KickVoteResponsesTableCreateCompanionBuilder
+    = KickVoteResponsesCompanion Function({
+  required String voteId,
+  required String odooUserId,
+  required int approve,
+  Value<DateTime> votedAt,
+  Value<int> rowid,
+});
+typedef $$KickVoteResponsesTableUpdateCompanionBuilder
+    = KickVoteResponsesCompanion Function({
+  Value<String> voteId,
+  Value<String> odooUserId,
+  Value<int> approve,
+  Value<DateTime> votedAt,
+  Value<int> rowid,
+});
+
+final class $$KickVoteResponsesTableReferences extends BaseReferences<
+    _$AppDatabase, $KickVoteResponsesTable, KickVoteResponse> {
+  $$KickVoteResponsesTableReferences(
+      super.$_db, super.$_table, super.$_typedResult);
+
+  static $KickVotesTable _voteIdTable(_$AppDatabase db) =>
+      db.kickVotes.createAlias(
+          $_aliasNameGenerator(db.kickVoteResponses.voteId, db.kickVotes.id));
+
+  $$KickVotesTableProcessedTableManager get voteId {
+    final $_column = $_itemColumn<String>('vote_id')!;
+
+    final manager = $$KickVotesTableTableManager($_db, $_db.kickVotes)
+        .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_voteIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: [item]));
+  }
+
+  static $UsersTable _odooUserIdTable(_$AppDatabase db) => db.users.createAlias(
+      $_aliasNameGenerator(db.kickVoteResponses.odooUserId, db.users.id));
+
+  $$UsersTableProcessedTableManager get odooUserId {
+    final $_column = $_itemColumn<String>('odoo_user_id')!;
+
+    final manager = $$UsersTableTableManager($_db, $_db.users)
+        .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_odooUserIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: [item]));
+  }
+}
+
+class $$KickVoteResponsesTableFilterComposer
+    extends Composer<_$AppDatabase, $KickVoteResponsesTable> {
+  $$KickVoteResponsesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get approve => $composableBuilder(
+      column: $table.approve, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get votedAt => $composableBuilder(
+      column: $table.votedAt, builder: (column) => ColumnFilters(column));
+
+  $$KickVotesTableFilterComposer get voteId {
+    final $$KickVotesTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.voteId,
+        referencedTable: $db.kickVotes,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$KickVotesTableFilterComposer(
+              $db: $db,
+              $table: $db.kickVotes,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$UsersTableFilterComposer get odooUserId {
+    final $$UsersTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.odooUserId,
+        referencedTable: $db.users,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$UsersTableFilterComposer(
+              $db: $db,
+              $table: $db.users,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$KickVoteResponsesTableOrderingComposer
+    extends Composer<_$AppDatabase, $KickVoteResponsesTable> {
+  $$KickVoteResponsesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get approve => $composableBuilder(
+      column: $table.approve, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get votedAt => $composableBuilder(
+      column: $table.votedAt, builder: (column) => ColumnOrderings(column));
+
+  $$KickVotesTableOrderingComposer get voteId {
+    final $$KickVotesTableOrderingComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.voteId,
+        referencedTable: $db.kickVotes,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$KickVotesTableOrderingComposer(
+              $db: $db,
+              $table: $db.kickVotes,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$UsersTableOrderingComposer get odooUserId {
+    final $$UsersTableOrderingComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.odooUserId,
+        referencedTable: $db.users,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$UsersTableOrderingComposer(
+              $db: $db,
+              $table: $db.users,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$KickVoteResponsesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $KickVoteResponsesTable> {
+  $$KickVoteResponsesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get approve =>
+      $composableBuilder(column: $table.approve, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get votedAt =>
+      $composableBuilder(column: $table.votedAt, builder: (column) => column);
+
+  $$KickVotesTableAnnotationComposer get voteId {
+    final $$KickVotesTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.voteId,
+        referencedTable: $db.kickVotes,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$KickVotesTableAnnotationComposer(
+              $db: $db,
+              $table: $db.kickVotes,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$UsersTableAnnotationComposer get odooUserId {
+    final $$UsersTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.odooUserId,
+        referencedTable: $db.users,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$UsersTableAnnotationComposer(
+              $db: $db,
+              $table: $db.users,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$KickVoteResponsesTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $KickVoteResponsesTable,
+    KickVoteResponse,
+    $$KickVoteResponsesTableFilterComposer,
+    $$KickVoteResponsesTableOrderingComposer,
+    $$KickVoteResponsesTableAnnotationComposer,
+    $$KickVoteResponsesTableCreateCompanionBuilder,
+    $$KickVoteResponsesTableUpdateCompanionBuilder,
+    (KickVoteResponse, $$KickVoteResponsesTableReferences),
+    KickVoteResponse,
+    PrefetchHooks Function({bool voteId, bool odooUserId})> {
+  $$KickVoteResponsesTableTableManager(
+      _$AppDatabase db, $KickVoteResponsesTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$KickVoteResponsesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$KickVoteResponsesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$KickVoteResponsesTableAnnotationComposer(
+                  $db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> voteId = const Value.absent(),
+            Value<String> odooUserId = const Value.absent(),
+            Value<int> approve = const Value.absent(),
+            Value<DateTime> votedAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              KickVoteResponsesCompanion(
+            voteId: voteId,
+            odooUserId: odooUserId,
+            approve: approve,
+            votedAt: votedAt,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String voteId,
+            required String odooUserId,
+            required int approve,
+            Value<DateTime> votedAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              KickVoteResponsesCompanion.insert(
+            voteId: voteId,
+            odooUserId: odooUserId,
+            approve: approve,
+            votedAt: votedAt,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (
+                    e.readTable(table),
+                    $$KickVoteResponsesTableReferences(db, table, e)
+                  ))
+              .toList(),
+          prefetchHooksCallback: ({voteId = false, odooUserId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins: <
+                  T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic>>(state) {
+                if (voteId) {
+                  state = state.withJoin(
+                    currentTable: table,
+                    currentColumn: table.voteId,
+                    referencedTable:
+                        $$KickVoteResponsesTableReferences._voteIdTable(db),
+                    referencedColumn:
+                        $$KickVoteResponsesTableReferences._voteIdTable(db).id,
+                  ) as T;
+                }
+                if (odooUserId) {
+                  state = state.withJoin(
+                    currentTable: table,
+                    currentColumn: table.odooUserId,
+                    referencedTable:
+                        $$KickVoteResponsesTableReferences._odooUserIdTable(db),
+                    referencedColumn: $$KickVoteResponsesTableReferences
+                        ._odooUserIdTable(db)
+                        .id,
+                  ) as T;
+                }
+
+                return state;
+              },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ));
+}
+
+typedef $$KickVoteResponsesTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $KickVoteResponsesTable,
+    KickVoteResponse,
+    $$KickVoteResponsesTableFilterComposer,
+    $$KickVoteResponsesTableOrderingComposer,
+    $$KickVoteResponsesTableAnnotationComposer,
+    $$KickVoteResponsesTableCreateCompanionBuilder,
+    $$KickVoteResponsesTableUpdateCompanionBuilder,
+    (KickVoteResponse, $$KickVoteResponsesTableReferences),
+    KickVoteResponse,
+    PrefetchHooks Function({bool voteId, bool odooUserId})>;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -7979,4 +9704,8 @@ class $AppDatabaseManager {
       $$UserStatsTableTableManager(_db, _db.userStats);
   $$NotificationsTableTableManager get notifications =>
       $$NotificationsTableTableManager(_db, _db.notifications);
+  $$KickVotesTableTableManager get kickVotes =>
+      $$KickVotesTableTableManager(_db, _db.kickVotes);
+  $$KickVoteResponsesTableTableManager get kickVoteResponses =>
+      $$KickVoteResponsesTableTableManager(_db, _db.kickVoteResponses);
 }

@@ -20,7 +20,7 @@ void main() {
     await tester.pumpAndSettle(const Duration(seconds: 3));
 
     // Check current state - might already be logged in from previous run
-    final hasMyGames = find.text('My Games').evaluate().isNotEmpty;
+    final hasMyGames = find.text('Five Crowns').evaluate().isNotEmpty;
     final hasNoGamesYet = find.text('No games yet').evaluate().isNotEmpty;
     final hasCreateGame = find.text('Create Game').evaluate().isNotEmpty;
     final isOnGamesScreen = hasMyGames || hasNoGamesYet || hasCreateGame;
@@ -28,7 +28,7 @@ void main() {
     final hasSignupLink = find.text("Don't have an account? Sign up").evaluate().isNotEmpty;
 
     print('Initial state:');
-    print('  On games screen: $isOnGamesScreen (My Games: $hasMyGames, No games: $hasNoGamesYet, Create: $hasCreateGame)');
+    print('  On games screen: $isOnGamesScreen (Five Crowns: $hasMyGames, No games: $hasNoGamesYet, Create: $hasCreateGame)');
     print('  On login screen: $isOnLoginScreen');
     print('  Has signup link: $hasSignupLink');
 
@@ -103,8 +103,10 @@ void main() {
     print('  ✓ Forgot password screen works');
 
     // Navigate back to login for main flow
-    await tester.tap(find.byIcon(Icons.arrow_back));
-    await tester.pumpAndSettle();
+    // Since platform-specific back button detection is unreliable in integration tests,
+    // restart the app to get back to login screen
+    runApp(const ProviderScope(child: FiveCrownsApp()));
+    await tester.pumpAndSettle(const Duration(seconds: 2));
 
     // Test 5: Create user via API and login
     print('Test 5: Create verified user and login');
@@ -115,17 +117,27 @@ void main() {
     } else {
       print('  Created user: ${user['email']}');
 
+      // Wait for login screen to be ready
+      await tester.pumpAndSettle(const Duration(seconds: 2));
+
       // Enter credentials
-      final textFields = find.byType(TextFormField);
-      await tester.enterText(textFields.at(0), user['email']!);
-      await tester.enterText(textFields.at(1), user['password']!);
+      final emailField = find.byType(TextFormField).first;
+      await tester.tap(emailField);
+      await tester.pumpAndSettle();
+      await tester.enterText(emailField, user['email']!);
+
+      final passwordField = find.byType(TextFormField).at(1);
+      await tester.tap(passwordField);
+      await tester.pumpAndSettle();
+      await tester.enterText(passwordField, user['password']!);
 
       // Login
       await tester.tap(find.widgetWithText(ElevatedButton, 'Login'));
       await tester.pumpAndSettle(const Duration(seconds: 5));
 
-      // Should be on games screen
-      if (find.text('My Games').evaluate().isNotEmpty) {
+      // Should be on games screen (title is "Five Crowns")
+      if (find.text('Five Crowns').evaluate().isNotEmpty &&
+          find.text('Login').evaluate().isEmpty) {
         print('  ✓ Login successful, on games screen');
         await _testGamesScreen(tester);
       } else {

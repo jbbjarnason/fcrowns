@@ -202,12 +202,31 @@ class _GameLobbyScreenState extends ConsumerState<GameLobbyScreen> {
                       const SizedBox(height: 8),
                       ...players.map((player) {
                         final user = player['user'] as Map;
+                        final userId = user['id'] as String?;
+                        final isConnected = ref.watch(gameProvider).playerConnected[userId] ?? false;
                         return ListTile(
-                          leading: CircleAvatar(
-                            child: Text((user['username'] as String? ?? '?')[0].toUpperCase()),
+                          leading: Stack(
+                            children: [
+                              CircleAvatar(
+                                child: Text((user['username'] as String? ?? '?')[0].toUpperCase()),
+                              ),
+                              Positioned(
+                                right: 0,
+                                bottom: 0,
+                                child: Container(
+                                  width: 12,
+                                  height: 12,
+                                  decoration: BoxDecoration(
+                                    color: isConnected ? Colors.green : Colors.grey,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.white, width: 2),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                           title: Text(user['displayName'] as String? ?? user['username'] as String? ?? 'Unknown'),
-                          subtitle: Text('Seat ${player['seat'] + 1}'),
+                          subtitle: Text('Seat ${player['seat'] + 1}${isConnected ? ' • Online' : ''}'),
                           dense: true,
                         );
                       }),

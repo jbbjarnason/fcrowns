@@ -144,6 +144,32 @@ class Notifications extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// Kick votes for removing players from games
+class KickVotes extends Table {
+  TextColumn get id => text().clientDefault(() => _uuidGen.v4())();
+  TextColumn get gameId => text().references(Games, #id, onDelete: KeyAction.cascade)();
+  TextColumn get targetUserId => text().references(Users, #id)();
+  TextColumn get initiatorUserId => text().references(Users, #id)();
+  DateTimeColumn get createdAt => dateTime().clientDefault(() => DateTime.now().toUtc())();
+  DateTimeColumn get expiresAt => dateTime()(); // 60 second timeout
+  TextColumn get status => text().withDefault(const Constant('pending'))(); // 'pending', 'passed', 'failed'
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Individual vote responses for kick votes
+class KickVoteResponses extends Table {
+  TextColumn get voteId => text().references(KickVotes, #id, onDelete: KeyAction.cascade)();
+  TextColumn get odooUserId => text().references(Users, #id)();
+  // Use integer for approve (0=false, 1=true) to avoid PostgreSQL boolean constraint issues
+  IntColumn get approve => integer()();
+  DateTimeColumn get votedAt => dateTime().clientDefault(() => DateTime.now().toUtc())();
+
+  @override
+  Set<Column> get primaryKey => {voteId, odooUserId};
+}
+
 @DriftDatabase(tables: [
   Users,
   EmailTokens,
@@ -156,12 +182,14 @@ class Notifications extends Table {
   GameResults,
   UserStats,
   Notifications,
+  KickVotes,
+  KickVoteResponses,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -172,6 +200,10 @@ class AppDatabase extends _$AppDatabase {
           // Handle schema migrations here
           if (from < 2) {
             await m.createTable(notifications);
+          }
+          if (from < 3) {
+            await m.createTable(kickVotes);
+            await m.createTable(kickVoteResponses);
           }
         },
       );

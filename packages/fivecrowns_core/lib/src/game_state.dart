@@ -381,6 +381,101 @@ class GameState {
     return players.where((p) => p.score == minScore).toList();
   }
 
+  /// Removes a player from the game (e.g., when kicked).
+  /// Their cards are shuffled back into the stock.
+  void removePlayer(String playerId) {
+    final playerIndex = players.indexWhere((p) => p.id == playerId);
+    if (playerIndex == -1) {
+      throw StateError('Player not found: $playerId');
+    }
+
+    final player = players[playerIndex];
+
+    // Return player's hand cards to the stock
+    final cardsToReturn = <Card>[];
+    cardsToReturn.addAll(player.hand);
+    for (final meld in player.melds) {
+      cardsToReturn.addAll(meld.cards);
+    }
+
+    if (cardsToReturn.isNotEmpty) {
+      _stock.addCards(cardsToReturn);
+      _stock.shuffle(_random);
+    }
+
+    // Remove the player
+    players.removeAt(playerIndex);
+
+    // Update seat numbers for remaining players
+    for (var i = 0; i < players.length; i++) {
+      players[i] = Player(
+        id: players[i].id,
+        seat: i,
+        hand: players[i].hand,
+        melds: players[i].melds,
+        score: players[i].score,
+      );
+    }
+
+    // Adjust currentPlayerIndex
+    if (players.isEmpty) {
+      status = GameStatus.finished;
+      return;
+    }
+
+    if (players.length == 1) {
+      // Only one player left, they win by default
+      status = GameStatus.finished;
+      return;
+    }
+
+    // Adjust current player index if needed
+    if (playerIndex < currentPlayerIndex) {
+      currentPlayerIndex--;
+    } else if (playerIndex == currentPlayerIndex) {
+      // Kicked player was current player - move to next
+      currentPlayerIndex = currentPlayerIndex % players.length;
+      turnPhase = TurnPhase.mustDraw;
+    }
+
+    // Ensure currentPlayerIndex is valid
+    if (currentPlayerIndex >= players.length) {
+      currentPlayerIndex = 0;
+    }
+
+    // Adjust firstRoundStarter if needed
+    if (playerIndex < firstRoundStarter) {
+      firstRoundStarter--;
+    }
+    if (firstRoundStarter >= players.length) {
+      firstRoundStarter = 0;
+    }
+
+    // Adjust playerWhoWentOut if needed
+    if (playerWhoWentOut != null) {
+      if (playerIndex == playerWhoWentOut) {
+        // The player who went out was kicked - round continues normally
+        playerWhoWentOut = null;
+        _playersWithFinalTurn.clear();
+      } else if (playerIndex < playerWhoWentOut!) {
+        playerWhoWentOut = playerWhoWentOut! - 1;
+      }
+    }
+
+    // Update final turn tracking
+    final newFinalTurns = <int>{};
+    for (final idx in _playersWithFinalTurn) {
+      if (idx < playerIndex) {
+        newFinalTurns.add(idx);
+      } else if (idx > playerIndex) {
+        newFinalTurns.add(idx - 1);
+      }
+      // Skip the removed player's index
+    }
+    _playersWithFinalTurn.clear();
+    _playersWithFinalTurn.addAll(newFinalTurns);
+  }
+
   /// Validates that we're in the expected turn phase.
   void _validateTurnPhase(TurnPhase expected) {
     if (status != GameStatus.active) {
