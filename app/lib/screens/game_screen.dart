@@ -4,6 +4,7 @@ import 'package:beamer/beamer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fivecrowns_core/fivecrowns_core.dart' show MeldType;
+import 'package:livekit_client/livekit_client.dart' show VideoTrackRenderer, VideoViewFit;
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../main.dart' show themeProvider;
 import '../providers/providers.dart';
@@ -211,7 +212,8 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     _nudgeTimer?.cancel();
     WakelockPlus.disable();
     _game.leaveGame();
-    _liveKit.disconnect();
+    // Don't disconnect LiveKit here - it's handled by the "Back to Games" button
+    // This allows audio to continue on the game end screen
     super.dispose();
   }
 
@@ -1682,37 +1684,241 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   Widget _buildGameEndScreen(game) {
     final sortedScores = game.scores.entries.toList()
       ..sort((a, b) => a.value.compareTo(b.value));
+    final auth = ref.read(authProvider);
+    final livekit = ref.watch(liveKitProvider);
 
-    return Center(
+    // Get other players (not yourself)
+    final otherPlayers = (game.players as List)
+        .where((p) => p['id'] != auth.userId)
+        .toList();
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Text('Game Over!', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 24),
-          const Text('Final Scores:', style: TextStyle(fontSize: 18)),
+          // Header
           const SizedBox(height: 16),
-          ...sortedScores.asMap().entries.map((entry) {
-            final rank = entry.key + 1;
-            final player = game.players.firstWhere(
-              (p) => p['id'] == entry.value.key,
-              orElse: () => {'displayName': 'Unknown'},
-            );
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Text(
-                '$rank. ${player['displayName'] ?? 'Player'}: ${entry.value.value} points',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: rank == 1 ? FontWeight.bold : FontWeight.normal,
-                  color: rank == 1 ? Colors.green : null,
-                ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [AppTheme.primary, AppTheme.primary.withValues(alpha: 0.7)],
               ),
-            );
-          }),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Text(
+              'Game Over!',
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          ),
           const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: () => context.beamToNamed('/games'),
-            child: const Text('Back to Games'),
+
+          // Video feeds of other players
+          if (otherPlayers.isNotEmpty && livekit.isConnected)
+            SizedBox(
+              height: 140,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: otherPlayers.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 12),
+                itemBuilder: (context, index) {
+                  final player = otherPlayers[index];
+                  final playerId = player['id'] as String;
+                  final displayName = player['displayName'] ?? 'Player';
+                  final videoTrack = livekit.getAllRemoteVideoTracks()[playerId];
+
+                  return Column(
+                    children: [
+                      Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.surface,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Theme.of(context).dividerColor),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(11),
+                          child: videoTrack != null
+                              ? VideoTrackRenderer(videoTrack, fit: VideoViewFit.cover)
+                              : Center(
+                                  child: Icon(
+                                    Icons.person,
+                                    size: 40,
+                                    color: Theme.of(context).disabledColor,
+                                  ),
+                                ),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        displayName,
+                        style: const TextStyle(fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          const SizedBox(height: 16),
+
+          // Audio controls
+          if (livekit.isConnected)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    color: livekit.audioEnabled
+                        ? AppTheme.success.withValues(alpha: 0.15)
+                        : AppTheme.error.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: IconButton(
+                    icon: Icon(
+                      livekit.audioEnabled ? Icons.mic : Icons.mic_off,
+                      color: livekit.audioEnabled ? AppTheme.success : AppTheme.error,
+                    ),
+                    onPressed: () => livekit.toggleAudio(),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  decoration: BoxDecoration(
+                    color: livekit.speakerEnabled
+                        ? AppTheme.success.withValues(alpha: 0.15)
+                        : AppTheme.error.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: IconButton(
+                    icon: Icon(
+                      livekit.speakerEnabled ? Icons.volume_up : Icons.volume_off,
+                      color: livekit.speakerEnabled ? AppTheme.success : AppTheme.error,
+                    ),
+                    onPressed: () => livekit.toggleSpeaker(),
+                  ),
+                ),
+              ],
+            ),
+          const SizedBox(height: 24),
+
+          // Final Scores
+          Expanded(
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Theme.of(context).dividerColor),
+              ),
+              child: Column(
+                children: [
+                  const Text(
+                    'Final Scores',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: sortedScores.length,
+                      itemBuilder: (context, index) {
+                        final rank = index + 1;
+                        final entry = sortedScores[index];
+                        final player = game.players.firstWhere(
+                          (p) => p['id'] == entry.key,
+                          orElse: () => {'displayName': 'Unknown'},
+                        );
+                        final isWinner = rank == 1;
+                        final isYou = entry.key == auth.userId;
+
+                        return Container(
+                          margin: const EdgeInsets.symmetric(vertical: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: isWinner
+                                ? AppTheme.success.withValues(alpha: 0.15)
+                                : isYou
+                                    ? AppTheme.primary.withValues(alpha: 0.1)
+                                    : null,
+                            borderRadius: BorderRadius.circular(8),
+                            border: isWinner
+                                ? Border.all(color: AppTheme.success, width: 2)
+                                : null,
+                          ),
+                          child: Row(
+                            children: [
+                              // Rank badge
+                              Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  color: isWinner ? AppTheme.success : Colors.grey,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Center(
+                                  child: isWinner
+                                      ? const Icon(Icons.emoji_events, color: Colors.white, size: 18)
+                                      : Text(
+                                          '$rank',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              // Player name
+                              Expanded(
+                                child: Text(
+                                  '${player['displayName'] ?? 'Player'}${isYou ? ' (You)' : ''}',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: isWinner || isYou ? FontWeight.bold : FontWeight.normal,
+                                  ),
+                                ),
+                              ),
+                              // Score
+                              Text(
+                                '${entry.value} pts',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: isWinner ? AppTheme.success : null,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Back to Games button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                _liveKit.disconnect();
+                context.beamToNamed('/games');
+              },
+              icon: const Icon(Icons.home),
+              label: const Text('Back to Games'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+            ),
           ),
         ],
       ),

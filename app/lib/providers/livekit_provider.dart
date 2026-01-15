@@ -33,6 +33,35 @@ class LiveKitProvider extends ChangeNotifier with WidgetsBindingObserver {
   List<livekit.RemoteParticipant> get remoteParticipants =>
       _room?.remoteParticipants.values.toList() ?? [];
 
+  /// Get all remote video tracks (for game end screen)
+  Map<String, livekit.VideoTrack?> getAllRemoteVideoTracks() {
+    final tracks = <String, livekit.VideoTrack?>{};
+    if (_room == null) return tracks;
+
+    for (final participant in _room!.remoteParticipants.values) {
+      final videoTrack = participant.videoTrackPublications.firstOrNull?.track
+          as livekit.VideoTrack?;
+      tracks[participant.identity] = videoTrack;
+    }
+    return tracks;
+  }
+
+  /// Enable all remote cameras for game end screen
+  Future<void> enableAllRemoteCameras() async {
+    if (_room == null) return;
+
+    // Ask all participants to enable camera via data message
+    // For now, we just subscribe to all available video tracks
+    for (final participant in _room!.remoteParticipants.values) {
+      for (final pub in participant.videoTrackPublications) {
+        if (!pub.subscribed) {
+          await pub.subscribe();
+        }
+      }
+    }
+    notifyListeners();
+  }
+
   // Get the active player's video track (if publishing)
   livekit.VideoTrack? get activePlayerVideoTrack {
     if (_activePlayerId == null || _room == null) {
