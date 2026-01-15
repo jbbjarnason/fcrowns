@@ -175,27 +175,30 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     );
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Reconnecting...'),
-          behavior: SnackBarBehavior.floating,
-          margin: EdgeInsets.only(bottom: 80, left: 16, right: 16),
-        ),
-      );
+      _showSnackBar('Reconnecting...');
     }
+  }
+
+  /// Show a SnackBar with dynamic margin based on whether action buttons are visible
+  void _showSnackBar(String message) {
+    final game = ref.read(gameProvider);
+    final hasActionButtons = game.isMyTurn && game.turnPhase == 'mustDiscard';
+    final bottomMargin = hasActionButtons ? 80.0 : 16.0;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        margin: EdgeInsets.only(bottom: bottomMargin, left: 16, right: 16),
+      ),
+    );
   }
 
   Future<void> _nudgeActivePlayer() async {
     final game = ref.read(gameProvider);
     final success = await game.nudgePlayer(widget.gameId);
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(success ? 'Nudge sent!' : 'Failed to nudge'),
-          behavior: SnackBarBehavior.floating,
-          margin: const EdgeInsets.only(bottom: 80, left: 16, right: 16),
-        ),
-      );
+      _showSnackBar(success ? 'Nudge sent!' : 'Failed to nudge');
       if (success) {
         setState(() => _canNudge = false);
         _turnStartTime = DateTime.now(); // Reset timer after nudge
@@ -324,13 +327,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       game.goOut(melds, discardCard);
       _clearMelds();
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Cannot go out - invalid melds or cards remaining'),
-          behavior: SnackBarBehavior.floating,
-          margin: EdgeInsets.only(bottom: 80, left: 16, right: 16),
-        ),
-      );
+      _showSnackBar('Cannot go out - invalid melds or cards remaining');
     }
   }
 
