@@ -176,7 +176,11 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Reconnecting...')),
+        const SnackBar(
+          content: Text('Reconnecting...'),
+          behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.only(bottom: 80, left: 16, right: 16),
+        ),
       );
     }
   }
@@ -186,7 +190,11 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     final success = await game.nudgePlayer(widget.gameId);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(success ? 'Nudge sent!' : 'Failed to nudge')),
+        SnackBar(
+          content: Text(success ? 'Nudge sent!' : 'Failed to nudge'),
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.only(bottom: 80, left: 16, right: 16),
+        ),
       );
       if (success) {
         setState(() => _canNudge = false);
@@ -317,7 +325,11 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       _clearMelds();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cannot go out - invalid melds or cards remaining')),
+        const SnackBar(
+          content: Text('Cannot go out - invalid melds or cards remaining'),
+          behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.only(bottom: 80, left: 16, right: 16),
+        ),
       );
     }
   }

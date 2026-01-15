@@ -120,7 +120,11 @@ class _GameLobbyScreenState extends ConsumerState<GameLobbyScreen> {
     final success = await ref.read(gamesProvider).nudgeHost(widget.gameId);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(success ? 'Nudge sent!' : 'Failed to nudge')),
+        SnackBar(
+          content: Text(success ? 'Nudge sent!' : 'Failed to nudge'),
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.only(bottom: 80, left: 16, right: 16),
+        ),
       );
     }
   }
