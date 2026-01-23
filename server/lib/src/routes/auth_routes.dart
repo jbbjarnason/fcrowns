@@ -287,7 +287,7 @@ class AuthRoutes {
 
     if (token.isEmpty) {
       return Response(400,
-          body: _htmlPage('Invalid Link', '<p>This password reset link is invalid or has expired.</p>'),
+          body: _htmlPage('Invalid Link', 'This password reset link is invalid or has expired.', false),
           headers: {'content-type': 'text/html'});
     }
 
@@ -455,46 +455,6 @@ class AuthRoutes {
 ''';
 
     return Response.ok(html, headers: {'content-type': 'text/html'});
-  }
-
-  String _htmlPage(String title, String content) {
-    return '''
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>\$title - Five Suits Rummy</title>
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0;
-      color: #333;
-    }
-    .container {
-      background: #fff;
-      padding: 40px;
-      border-radius: 16px;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-      max-width: 400px;
-      text-align: center;
-    }
-    h1 { color: #1a1a2e; margin-bottom: 16px; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h1>\$title</h1>
-    \$content
-  </div>
-</body>
-</html>
-''';
   }
 
   Response _errorResponse(int statusCode, String code, String message) {
