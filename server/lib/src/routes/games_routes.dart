@@ -68,6 +68,21 @@ class GamesRoutes {
 
     for (final game in games) {
       final players = await _getGamePlayers(game.id);
+
+      // Get scores for finished games
+      Map<String, int>? scores;
+      String? winnerId;
+      if (game.status == 'finished') {
+        final result = await (db.select(db.gameResults)
+          ..where((r) => r.gameId.equals(game.id)))
+            .getSingleOrNull();
+        if (result != null) {
+          scores = (jsonDecode(result.scoresJson) as Map<String, dynamic>)
+              .map((k, v) => MapEntry(k, v as int));
+          winnerId = result.winnerUserId;
+        }
+      }
+
       gameSummaries.add(GameSummaryDto(
         id: game.id,
         status: GameStatus.fromString(game.status),
@@ -75,6 +90,8 @@ class GamesRoutes {
         createdBy: game.createdBy,
         createdAt: game.createdAt,
         finishedAt: game.finishedAt,
+        scores: scores,
+        winnerId: winnerId,
       ).toJson());
     }
 

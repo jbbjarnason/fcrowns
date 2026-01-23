@@ -2,7 +2,7 @@ name: fivecrowns_app
 description: Five Suits Rummy card game - fcrown.centroid.is
 publish_to: 'none'
 
-version: 1.0.0+16
+version: 1.0.0+17
 
 environment:
   sdk: ^3.8.1

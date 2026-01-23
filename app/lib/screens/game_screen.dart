@@ -212,8 +212,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     _nudgeTimer?.cancel();
     WakelockPlus.disable();
     _game.leaveGame();
-    // Don't disconnect LiveKit here - it's handled by the "Back to Games" button
-    // This allows audio to continue on the game end screen
+    // Always disconnect LiveKit when leaving the game screen
+    // The end game screen is part of this widget, so dispose only runs when truly leaving
+    _liveKit.disconnect();
     super.dispose();
   }
 
@@ -1681,14 +1682,36 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     );
   }
 
-  Widget _buildGameEndScreen(game) {
-    final sortedScores = game.scores.entries.toList()
-      ..sort((a, b) => a.value.compareTo(b.value));
+  Widget _buildGameEndScreen(GameProvider game) {
     final auth = ref.read(authProvider);
     final livekit = ref.watch(liveKitProvider);
 
+    // Safety check for scores
+    if (game.scores.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text('Game Over!', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () {
+                _liveKit.disconnect();
+                context.beamToNamed('/games');
+              },
+              icon: const Icon(Icons.home),
+              label: const Text('Back to Games'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final sortedScores = game.scores.entries.toList()
+      ..sort((a, b) => a.value.compareTo(b.value));
+
     // Get other players (not yourself)
-    final otherPlayers = (game.players as List)
+    final otherPlayers = game.players
         .where((p) => p['id'] != auth.userId)
         .toList();
 

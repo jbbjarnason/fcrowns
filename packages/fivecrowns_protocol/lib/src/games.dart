@@ -78,6 +78,8 @@ class GameSummaryDto {
   final String createdBy;
   final DateTime createdAt;
   final DateTime? finishedAt;
+  final Map<String, int>? scores;  // Player ID -> final score (for finished games)
+  final String? winnerId;  // Winner's user ID (for finished games)
 
   GameSummaryDto({
     required this.id,
@@ -86,6 +88,8 @@ class GameSummaryDto {
     required this.createdBy,
     required this.createdAt,
     this.finishedAt,
+    this.scores,
+    this.winnerId,
   });
 
   factory GameSummaryDto.fromJson(Map<String, dynamic> json) => GameSummaryDto(
@@ -99,6 +103,12 @@ class GameSummaryDto {
         finishedAt: json['finishedAt'] != null
             ? DateTime.parse(json['finishedAt'] as String)
             : null,
+        scores: json['scores'] != null
+            ? (json['scores'] as Map<String, dynamic>).map(
+                (k, v) => MapEntry(k, v as int),
+              )
+            : null,
+        winnerId: json['winnerId'] as String?,
       );
 
   Map<String, dynamic> toJson() => {
@@ -108,6 +118,8 @@ class GameSummaryDto {
         'createdBy': createdBy,
         'createdAt': createdAt.toIso8601String(),
         if (finishedAt != null) 'finishedAt': finishedAt!.toIso8601String(),
+        if (scores != null) 'scores': scores,
+        if (winnerId != null) 'winnerId': winnerId,
       };
 }
 

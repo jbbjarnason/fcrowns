@@ -367,7 +367,13 @@ class _GamesScreenState extends ConsumerState<GamesScreen> {
                     ),
                     isThreeLine: dateStr.isNotEmpty,
                     trailing: const Icon(Icons.arrow_forward_ios),
-                    onTap: () => context.beamToNamed('/games/$gameId'),
+                    onTap: () {
+                      if (isFinished) {
+                        _showFinishedGameScores(context, game);
+                      } else {
+                        context.beamToNamed('/games/$gameId');
+                      }
+                    },
                   ),
                 );
 
@@ -496,5 +502,116 @@ class _GamesScreenState extends ConsumerState<GamesScreen> {
     } catch (e) {
       return '';
     }
+  }
+
+  void _showFinishedGameScores(BuildContext context, Map<String, dynamic> game) {
+    final players = (game['players'] as List?) ?? [];
+    final scores = game['scores'] as Map<String, dynamic>?;
+    final winnerId = game['winnerId'] as String?;
+    final finishedAt = game['finishedAt'];
+
+    // Sort players by score (lowest is best in Five Crowns)
+    final sortedPlayers = List<Map<String, dynamic>>.from(
+      players.map((p) {
+        final userId = p['user']?['id'] ?? p['id'];
+        final score = scores?[userId] ?? 0;
+        return {
+          'id': userId,
+          'displayName': p['user']?['displayName'] ?? p['displayName'] ?? 'Player',
+          'score': score,
+        };
+      }),
+    );
+    sortedPlayers.sort((a, b) => (a['score'] as int).compareTo(b['score'] as int));
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.emoji_events, color: Colors.amber),
+            SizedBox(width: 8),
+            Text('Final Scores'),
+          ],
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (finishedAt != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Text(
+                    'Finished: ${_formatDate(finishedAt)}',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                  ),
+                ),
+              ...sortedPlayers.asMap().entries.map((entry) {
+                final rank = entry.key + 1;
+                final player = entry.value;
+                final isWinner = player['id'] == winnerId || rank == 1;
+
+                return Container(
+                  margin: const EdgeInsets.symmetric(vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isWinner ? Colors.amber.withValues(alpha: 0.15) : null,
+                    borderRadius: BorderRadius.circular(8),
+                    border: isWinner ? Border.all(color: Colors.amber, width: 2) : null,
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: isWinner ? Colors.amber : Colors.grey,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: isWinner
+                              ? const Icon(Icons.emoji_events, color: Colors.white, size: 16)
+                              : Text(
+                                  '$rank',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          player['displayName'] as String,
+                          style: TextStyle(
+                            fontWeight: isWinner ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '${player['score']} pts',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: isWinner ? Colors.amber[800] : null,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
   }
 }
