@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../screens/login_screen.dart';
 import '../screens/signup_screen.dart';
 import '../screens/forgot_password_screen.dart';
+import '../screens/reset_password_screen.dart';
 import '../screens/games_screen.dart';
 import '../screens/friends_screen.dart';
 import '../screens/game_lobby_screen.dart';
@@ -17,6 +18,7 @@ class AuthLocation extends BeamLocation<BeamState> {
     '/login',
     '/signup',
     '/forgot-password',
+    '/reset-password',
   ];
 
   @override
@@ -44,6 +46,15 @@ class AuthLocation extends BeamLocation<BeamState> {
         key: ValueKey('forgot-password'),
         title: 'Reset Password',
         child: ForgotPasswordScreen(),
+      ));
+    }
+
+    if (state.pathPatternSegments.contains('reset-password')) {
+      final token = state.queryParameters['token'] ?? '';
+      pages.add(BeamPage(
+        key: ValueKey('reset-password-$token'),
+        title: 'Reset Password',
+        child: ResetPasswordScreen(token: token),
       ));
     }
 
